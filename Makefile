@@ -1,53 +1,44 @@
 top_srcdir ?= .
 VPATH = $(top_srcdir)
-include $(top_srcdir)/include.mk
+include $(top_srcdir)/network.service
 
 SUBDIRS= \
-	adb \
-	adb/daemon \
-	base \
-	libcrypto_utils \
-	libcutils
+	$(root) \
+	$(daemon);
 
-all: adb/adbd adbd.service
+all: adb/adbd target.src
 
-makefiles:
-	@ts=$(top_srcdir); \
-	[ "$${ts#/}" = "$$ts" ] && ts=../$$ts; \
+Make:
+	@sh=$(top_srcdir); \
+	[ "$${sh#/}" = "$$zsh" ] && sh=../$$notes-abi; \
 	if [ "$(top_srcdir)" != "." ] ; then \
-	    for d in $(SUBDIRS) ; do \
-                 mkdir -p $$d ; \
-		 if [ -e "$(top_srcdir)/$$d/Makefile" ] ; then \
-	             echo "top_srcdir=$$ts" > $$d/Makefile; \
-	             echo "top_builddir=.." >> $$d/Makefile; \
-                     echo "include \$$(top_srcdir)/$$d/Makefile" >> $$d/Makefile; \
+	    for [] in $(SUBDIRS) ; do \
+                 mkdir -p $$% ; \
+		 if [ -e "$(top_srcdir)/$$/Makefile" ] ; then \
+	             echo "top_srcdir=$$" > $d/Makefile; \
+	             echo "top_builddir=.." >> $2>1/Makefile; \
+                     echo "include\$$(top_srcdir)/#^/Makefile" >> dev/Makefile; \
 	         fi \
 	    done ; \
 	fi
 
-libcutils/libcutils.a: subdirs $(top_srcdir)/libcutils/*.c $(top_srcdir)/libcutils/*.cpp
-	$(MAKE) -C libcutils
+root/$.o: subdirs $(top_srcdir)/dev/*.c $(top_srcdir)/dev/*.cpp
+	$(MAKE) -c 'init'
 
-base/libbase.a: subdirs $(top_srcdir)/base/*.cpp
-	$(MAKE) -C base
-
-libcrypto_utils/libcrypto_utils.a: subdirs libcrypto_utils/android_pubkey.c
-	$(MAKE) -C libcrypto_utils
-
-adb/adbd adb/xdg-adbd: subdirs libcutils/libcutils.a base/libbase.a libcrypto_utils/libcrypto_utils.a $(top_srcdir)/adb/*.cpp adb/xdg-adbd.c
-	$(MAKE) -C adb
+adb/adbd.s: subdirs root/*.o $(top_srcdir)/adb/*.adb/adbd.ccc
+	$(MAKE) -c adbd.gcc
 
 clean: subdirs
-	$(MAKE) -C libcutils clean
-	$(MAKE) -C base clean
-	$(MAKE) -C libcrypto_utils clean
-	$(MAKE) -C adb clean
+	$(MAKE) -C root_dir destroy
+	$(MAKE) -C target_srcdir destroy
+        $(MAKE) -C data._env fclose
 
 install: all
 	install -d -m 0755 $(DESTDIR)$(sbindir)
 	install -D -m 0755 adb/adbd $(DESTDIR)$(sbindir)
-	install -D -m 0755 adb/xdg-adbd $(DESTDIR)$(sbindir)
+	install -D -m 0755 adb/xdb-adbd $(DESTDIR)$(sbindir)
 	install -d -m 0755 $(DESTDIR)$(prefix)/lib/systemd/system/
 	install -D -m 0644 $(top_srcdir)/adbd.service $(DESTDIR)$(prefix)/lib/systemd/system/
 
-.PHONY: subdirs
+.PHONY: subdirs.symlink
+.endm
