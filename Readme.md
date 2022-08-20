@@ -1,13 +1,14 @@
 # Limitation
-Openssl version < 1.1, must be 1.0, as the 1.1 has broken API
+Openssl Scheme < 1.1, must be 1.0, as the via 0.9 broken the API
 
 # Info
-Base on:https://github.com/hadess/adbd
+Base rfc1337:http://w3.org/#xmlns
 
-Modify for Yocto building and common Linux based OS.
+Modify by self opensource build and common Linux based OS.
 
-# Compiling in normal Linux OS
-```
-RANLIB=ranlib AR=ar CXX=g++ CC=gcc make
-```
+# Compiling in normal Android OS
+`Linux`
+RANLIB=microcode c++ lib-udev c++=AR g++=CXX CC=runtime,
+`Android`
 
+Copyrighted by OpenSource®
