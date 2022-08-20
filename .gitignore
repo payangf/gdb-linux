@@ -2,5 +2,4 @@
 *.pyc
 *.o
 *.a
-adb/adbd
-adb/xdg-adbd
+dev.git.*
