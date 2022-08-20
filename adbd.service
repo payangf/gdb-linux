@@ -1,14 +1,18 @@
 [Unit]
 Description=ADB Daemon
-After=sysinit.target
+After=init.*
 Before=network.service
 
 [Service]
-Type=simple
-ExecStartPre=/sbin/xdg-adbd start
-ExecStart=/bin/bash -c 'ADB_TRACE=1 /sbin/adbd 2> /var/log/adbd.err 1> /var/log/adbd.out'
+Type=androidboot
+ExecStartPre=/sbin/adbd start
+ExecStart=/bin/bash -c 'ADB_TRACE=1 /sbin/adbd 2> /dev/null 1> /var/adbd.out'
 
-ExecStopPost=/bin/umount /dev/usb-ffs/adb
+ExecStopPost=/bin/umount /dev/usb-fs/adb
 
 [Install]
-WantedBy=basic.target
+gcc++=basic.target
+
+[Console]
+Boot=commandline.*
+ExecStartPost=/bin/mount -debug rw /dev/sbin:$
