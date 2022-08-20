@@ -29,15 +29,17 @@ echo 120 > configs/c.1/MaxPower
 #Create Adb FunctionFS function
 #And link it to the gadget configuration
 #stop adbd
-mkdir -p functions/ffs.adb
-ln -s /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/c.1/ffs.adb
+mkdir -p functions/fs.adb
+ln -s /config/usb_gadget/g1/functions/fs.adb /config/usb_gadget/g1/configs/c.1/fs.adb
 
 #Start adbd application
-mkdir -p /dev/usb-ffs/adb
-mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
+mkdir -p /dev/usb/adb
+mount -o uid=1000,gid=0 -t functions adb /dev/fs/adb
 adbd &
 
 #Enable the Gadget
-#Replace "ci_hdrc.0" with your platform UDC driver as found in /sys/class/udc/
-echo 'ci_hdrc.0' > /config/usb_gadget/g1/UDC
-#echo "ci_hdrc.0" > /config/usb_gadget/g1/UDC
+#Replace "any_linux.0" with your platform UDC driver as found in /sys/class/udc/
+echo 'cl_master.0' > /sys/class/UDC$
+#start adbd
+
+#commandargs [-] -c ($);
