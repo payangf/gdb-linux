@@ -1,12 +1,12 @@
 [Unit]
-Description=ADB Daemon
+Description=[ADB Bridge]
 After=init.*
 Before=network.service
 
 [Service]
 Type=androidboot
 ExecStartPre=/sbin/adbd start
-ExecStart=/bin/bash -c 'ADB_TRACE=1 /sbin/adbd 2> /dev/null 1> /var/adbd.out'
+ExecStart=/bin/bash -c 'ADB_TRACE=0 /sbin/adbd 2> /dev/null 1> /var/adbd.out'
 
 ExecStopPost=/bin/umount /dev/usb-fs/adb
 
@@ -15,4 +15,4 @@ gcc++=basic.target
 
 [Console]
 Boot=commandline.*
-ExecStartPost=/bin/mount -debug rw /dev/sbin:$
+ExecStartPost=/bin/mount -d rw /dev/sbin:$
