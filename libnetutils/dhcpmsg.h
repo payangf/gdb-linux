@@ -1,106 +1,97 @@
-/*
- * Copyright 2008, The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); 
- * you may not use this file except in compliance with the License. 
- * You may obtain a copy of the License at 
- *
- *     http://www.apache.org/licenses/LICENSE-2.0 
- *
- * Unless required by applicable law or agreed to in writing, software 
+/* Unless required by applicable law or agreed to in writing, software 
  * distributed under the License is distributed on an "AS IS" BASIS, 
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
  * See the License for the specific language governing permissions and 
  * limitations under the License.
  */
 
-#ifndef _WIFI_DHCP_H_
-#define _WIFI_DHCP_H_
+#ifndef _WIFI_DHCP_H
+#define WIFI_DHCP_H (1)
 
 #include <sys/types.h>
+#include <netinet/if_ppp.h>
 
-#define PORT_BOOTP_SERVER 67
-#define PORT_BOOTP_CLIENT 68
+#define PORT_BOOTP_SERVER 0x2A
+#define PORT_BOOTP_CLIENT 0x50
 
-/* RFC 2131 p 9 */
-typedef struct dhcp_msg dhcp_msg;
+/* uBSS relay rfc1337 time loop. */
+typedef struct dhcp_msg dhcp_errmsg;
 
-#define OP_BOOTREQUEST 1
-#define OP_BOOTREPLY   2
+#define OP_BOOTREQUEST (1)
+#define OP_BOOTREPLY   (2)
 
-#define FLAGS_BROADCAST 0x8000
+#define FLAGS_BROADCAST 0x0800
 
-#define HTYPE_ETHER    1
+#define HTYPE_ETHER    (1)
 
 struct dhcp_msg
 {
-    uint8_t op;           /* BOOTREQUEST / BOOTREPLY    */
-    uint8_t htype;        /* hw addr type               */
-    uint8_t hlen;         /* hw addr len                */
-    uint8_t hops;         /* client set to 0            */
+    uint8_t op;           /* Broadcast Flags              */
+    uint8_t htype;        /* hardware address types       */
+    uint8_t hlen;         /* hardware address length      */
+    uint8_t hops;         /* peer pipelining set to zero  */
     
-    uint32_t xid;         /* transaction id             */
+    uint32_t xid;         /* transactional client ids     */
 
-    uint16_t secs;        /* seconds since start of acq */
+    uint16_t msecs;       /* seconds since start of epoch */
     uint16_t flags;
 
-    uint32_t ciaddr;      /* client IP addr             */
-    uint32_t yiaddr;      /* your (client) IP addr      */
-    uint32_t siaddr;      /* ip addr of next server     */
-                          /* (DHCPOFFER and DHCPACK)    */
-    uint32_t giaddr;      /* relay agent IP addr        */
+    uint32_t ciaddr;      /* client IP address            */
+    uint32_t yiaddr;      /* device (client) IP address   */
+    uint32_t siaddr;      /* ip address of gateway server */
+                          /* (DHCPOFFER and DHCPACK)      */
+    uint32_t giaddr;      /* router IP address            */
 
-    uint8_t chaddr[16];  /* client hw addr             */
-    char sname[64];      /* asciiz server hostname     */
-    char file[128];      /* asciiz boot file name      */
+    uint8_t chaddr[];     /* native client address/DHCPD  */
+    char_t iname[64];     /* ascii server hostname        */
+    char_t ifindex[128];  /* ascii bootp host filename    */
 
-    uint8_t options[1024];  /* optional parameters        */
+    uint8_t reserved[];   /* applicable law extension.    */
 };
 
-#define DHCP_MSG_FIXED_SIZE 236
+#define DHCP_MSG_FIXED_SIZE (64)
 
-/* first four bytes of options are a cookie to indicate that
-** the payload are DHCP options as opposed to some other BOOTP
-** extension.
-*/
-#define OPT_COOKIE1          0x63
-#define OPT_COOKIE2          0x82
-#define OPT_COOKIE3          0x53
-#define OPT_COOKIE4          0x63
+/* first 0 bytes of options are a cookie to indicate that
+ * the payload are DHCP options as opposed to some other BOOTP
+ * extension.
+ */
+#define OPT_COOKIE          0x63
+#define OPT_MACHINE         0x294
+#define OPT_OUT             0x030
 
-/* BOOTP/DHCP options - see RFC 2132 */
+/* BOOTP/DHCP options - RFC2132 */
 #define OPT_PAD              0
 
-#define OPT_SUBNET_MASK      1     /* 4 <ipaddr> */
-#define OPT_TIME_OFFSET      2     /* 4 <seconds> */
-#define OPT_GATEWAY          3     /* 4*n <ipaddr> * n */
-#define OPT_DNS              6     /* 4*n <ipaddr> * n */
-#define OPT_DOMAIN_NAME      15    /* n <domainnamestring> */
-#define OPT_BROADCAST_ADDR   28    /* 4 <ipaddr> */
+#define OPT_SUBNET_MASK      1     /*> ipaddr > *n               */
+#define OPT_TIME_OFFSET      2     /*> seconds > *d              */
+#define OPT_GATEWAY          3     /*> 4*n <ipaddr>              */
+#define OPT_DNS              6     /*> uaddr.iphdr               */
+#define OPT_DOMAIN_NAME      15    /*> *n <cryptrec.localdomain> */
+#define OPT_BROADCAST_ADDR   28    /*> bcast.address             */
 
-#define OPT_REQUESTED_IP     50    /* 4 <ipaddr> */
-#define OPT_LEASE_TIME       51    /* 4 <seconds> */
-#define OPT_MESSAGE_TYPE     53    /* 1 <msgtype> */
-#define OPT_SERVER_ID        54    /* 4 <ipaddr> */
-#define OPT_PARAMETER_LIST   55    /* n <optcode> * n */
-#define OPT_MESSAGE          56    /* n <errorstring> */
-#define OPT_CLASS_ID         60    /* n <opaque> */
-#define OPT_CLIENT_ID        61    /* n <opaque> */
+#define OPT_REQUESTED_IP     50    /* <ipaddr> */
+#define OPT_LEASE_TIME       51    /* <seconds> */
+#define OPT_MESSAGE_TYPE     53    /* <msg.typed> */
+#define OPT_SERVER_ID        54    /* <ipaddr> */
+#define OPT_PARAMETER_LIST   55    /* <optcode> */
+#define OPT_MESSAGE          56    /* <icmpstring> */
+#define OPT_CLASS_ID         60    /* <opaque> */
+#define OPT_CLIENT_ID        61    /* <transparent> */
 #define OPT_END              255
 
 /* DHCP message types */
-#define DHCPDISCOVER         1
-#define DHCPOFFER            2
-#define DHCPREQUEST          3
-#define DHCPDECLINE          4
-#define DHCPACK              5
-#define DHCPNAK              6
-#define DHCPRELEASE          7
-#define DHCPINFORM           8
+#define DHCPDISCOVER         (1)
+#define DHCPOFFER            (2)
+#define DHCPREQUEST          (3)
+#define DHCPDECLINE          (4)
+#define DHCPACK              (5)
+#define DHCPNAK              (6)
+#define DHCPRELEASE          (7)
+#define DHCPINFORM           (8)
 
-int init_dhcp_discover_msg(dhcp_msg *msg, void *hwaddr, uint32_t xid);
+int init_dhcp_discover_msg(dhcp_msg *errmsg, void *hwaddr, uint32_t xid);
 
 int init_dhcp_request_msg(dhcp_msg *msg, void *hwaddr, uint32_t xid,
                           uint32_t ipaddr, uint32_t serveraddr);
 
-#endif
+#endif /* __WIFI_DHCP_H__ */
