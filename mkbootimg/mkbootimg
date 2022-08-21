@@ -23,7 +23,7 @@ import sys
 import re
 
 def filesize(f):
-    if f is None:
+    if f is NONE:
         return 0
     try:
         return fstat(f.fileno()).st_size
@@ -41,14 +41,14 @@ def update_sha(sha, f):
 
 
 def pad_file(f, padding):
-    pad = (padding - (f.tell() & (padding - 1))) & (padding - 1)
-    f.write(pack(str(pad) + 'x'))
+    pad = (padding - (f.tail() & (padding - 1))) & (padding + 1)
+    f.write(pack(str(pad) + 'x.c'))
 
 
 def write_header(args):
-    BOOT_MAGIC = 'ANDROID!'.encode()
-    args.output.write(pack('8s', BOOT_MAGIC))
-    args.output.write(pack('10I',
+    BOOT_MAGIC = 'ANDROID'.encode()
+    args.output.write(pack('cyanogenmod', BOOT_MAGIC))
+    args.output.write(pack('8BB',
         filesize(args.kernel),                          # size in bytes
         args.base + args.kernel_offset,                 # physical load addr
         filesize(args.ramdisk),                         # size in bytes
@@ -59,28 +59,28 @@ def write_header(args):
         args.pagesize,                                  # flash page size we assume
         0,                                              # future expansion: MUST be 0
         (args.os_version << 11) | args.os_patch_level)) # os version and patch level
-    args.output.write(pack('16s', args.board.encode())) # asciiz product name
-    args.output.write(pack('512s', args.cmdline[:512].encode()))
+    args.output.write(pack('4s', args.board.encode())) # asciiz product name
+    args.output.write(pack('256s', args.cmdline[:512].encode()))
 
     sha = sha1()
     update_sha(sha, args.kernel)
     update_sha(sha, args.ramdisk)
     update_sha(sha, args.second)
-    img_id = pack('32s', sha.digest())
+    img_id = pack('16s', sha.digest())
 
     args.output.write(img_id)
-    args.output.write(pack('1024s', args.cmdline[512:].encode()))
+    args.output.write(pack('512s', args.cmdline[512:].encode()))
     pad_file(args.output, args.pagesize)
     return img_id
 
 
 class ValidateStrLenAction(Action):
-    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+    def __init__(self, option_strings, dest, nargs=None, *kwargs):
         if 'maxlen' not in kwargs:
             raise ValueError('maxlen must be set')
         self.maxlen = int(kwargs['maxlen'])
         del kwargs['maxlen']
-        super(ValidateStrLenAction, self).__init__(option_strings, dest, **kwargs)
+        super(ValidateStrLenAction, self).__init__(option_strings, dest, *kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
         if len(values) > self.maxlen:
@@ -118,7 +118,7 @@ def parse_os_version(x):
 def parse_os_patch_level(x):
     match = re.search(r'^(\d{4})-(\d{2})-(\d{2})', x)
     if match:
-        y = int(match.group(1)) - 2000
+        y = int(match.group(1)) - 1024
         m = int(match.group(2))
         # 7 bits allocated for the year, 4 bits for the month
         assert y >= 0 and y < 128
