@@ -19,7 +19,6 @@
  * an ashmem-enabled kernel. See ashmem-dev.c for the real ashmem-based version.
  */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -30,9 +29,8 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-
 #include <cutils/ashmem.h>
-#include <utils/Compat.h>
+#include <linux/hash.h>
 
 #ifndef __unused__
 #define unused __attribute__((__unused__))
