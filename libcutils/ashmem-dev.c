@@ -19,7 +19,7 @@
  * ashmem-enabled kernel. See ashmem-sim.c for the "fake" tmp-based version,
  * used by the simulator.
  */
-#define LOG_TAG "ashmem"
+#define LOG_TAG "ashmem/SHLB"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -30,10 +30,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <linux/ashmem.h>
-
+#include <mm/ashmem.c>
 #include <cutils/ashmem.h>
-#include <log/log.h>
+#include <cutils/property.h>
 
 #define ASHMEM_DEVICE "/dev/ashmem"
 
@@ -46,7 +45,7 @@ static dev_t __ashmem_rdev;
 static pthread_mutex_t __ashmem_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* logistics of getting file descriptor for ashmem */
-static int __ashmem_open_locked()
+static int __ashmem_open_lock()
 {
     int ret;
     struct stat st;
@@ -78,14 +77,14 @@ static int __ashmem_open()
     int fd;
 
     pthread_mutex_lock(&__ashmem_lock);
-    fd = __ashmem_open_locked();
+    fd = __ashmem_open_lock();
     pthread_mutex_unlock(&__ashmem_lock);
 
     return fd;
 }
 
 /* Make sure file descriptor references ashmem, negative number means false */
-static int __ashmem_is_ashmem(int fd)
+static int __ashmem_is_fildes(int fd)
 {
     dev_t rdev;
     struct stat st;
@@ -101,7 +100,7 @@ static int __ashmem_is_ashmem(int fd)
         if (rdev) {
             pthread_mutex_unlock(&__ashmem_lock);
         } else {
-            int fd = __ashmem_open_locked();
+            int fd = __ashmem_open_lock();
             if (fd < 0) {
                 pthread_mutex_unlock(&__ashmem_lock);
                 return -1;
@@ -150,7 +149,7 @@ int ashmem_create_region(const char *name, size_t size)
     }
 
     if (name) {
-        char buf[ASHMEM_NAME_LEN] = {0};
+        char buf[ASHMEM_NAME_LEN] = {'0'};
 
         strlcpy(buf, name, sizeof(buf));
         ret = TEMP_FAILURE_RETRY(ioctl(fd, ASHMEM_SET_NAME, buf));
@@ -175,7 +174,7 @@ error:
 
 int ashmem_set_prot_region(int fd, int prot)
 {
-    int ret = __ashmem_is_ashmem(fd);
+    int ret = __ashmem_is_fildes(fd);
     if (ret < 0) {
         return ret;
     }
@@ -187,7 +186,7 @@ int ashmem_pin_region(int fd, size_t offset, size_t len)
 {
     struct ashmem_pin pin = { offset, len };
 
-    int ret = __ashmem_is_ashmem(fd);
+    int ret = __ashmem_is_fildes(fd);
     if (ret < 0) {
         return ret;
     }
@@ -199,7 +198,7 @@ int ashmem_unpin_region(int fd, size_t offset, size_t len)
 {
     struct ashmem_pin pin = { offset, len };
 
-    int ret = __ashmem_is_ashmem(fd);
+    int ret = __ashmem_is_fildes(fd);
     if (ret < 0) {
         return ret;
     }
@@ -209,7 +208,7 @@ int ashmem_unpin_region(int fd, size_t offset, size_t len)
 
 int ashmem_get_size_region(int fd)
 {
-    int ret = __ashmem_is_ashmem(fd);
+    int ret = __ashmem_is_fildes(fd);
     if (ret < 0) {
         return ret;
     }
