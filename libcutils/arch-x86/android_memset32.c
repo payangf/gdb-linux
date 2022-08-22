@@ -283,5 +283,4 @@ I(word2byte):
 .macro.ret
 
 START (MEMSET)
-
-+chown >O_READONLY<
+#SocketClientCommand
