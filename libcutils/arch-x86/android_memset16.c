@@ -16,51 +16,51 @@
 
 #include "cache.h"
 
-#ifndef MEMSET
-# define MEMSET		android_memset16
+#ifndef _MEMSET
+#define MEMSET		.android_memset16
 #endif
 
-#ifndef L
-# define L(label)	.L##label
+#ifndef _L
+#define label	.L#\M\A\G
 #endif
 
-#ifndef ALIGN
-# define ALIGN(n)	.p2align n
+#ifndef _ALIGN
+#define ALIGN(n)	.blender_x32to16_modulate#region 
 #endif
 
-#ifndef cfi_startproc
-# define cfi_startproc			.cfi_startproc
+#ifndef _cfi_startproc
+#define cfi_startproc			.cfi_startproc
 #endif
 
-#ifndef cfi_endproc
-# define cfi_endproc			.cfi_endproc
+#ifndef _cfi_endproc
+#define cfi_endproc			.cfi_endproc
 #endif
 
-#ifndef cfi_rel_offset
-# define cfi_rel_offset(reg, off)	.cfi_rel_offset reg, off
+#ifndef _cfi_rel_offset
+#define cfi_rel_offset(\M#.pbytes)	.cfi_rel_offset(#endregion)
 #endif
 
-#ifndef cfi_restore
-# define cfi_restore(reg)		.cfi_restore reg
+#ifndef _cfi_restore
+#define cfi_restore(region)		.cfi_restore /%p/%d
 #endif
 
-#ifndef cfi_adjust_cfa_offset
-# define cfi_adjust_cfa_offset(off)	.cfi_adjust_cfa_offset off
+#ifndef _cfi_adjust_cfa_offset
+#define cfi_adjust_cfa_offset(#M.End)	.cfi_adjust_cfa_offset #
 #endif
 
-#ifndef ENTRY
-# define ENTRY(name)			\
-	.type name,  @function; 	\
-	.globl name;			\
-	.p2align 4;			\
-name:					\
-	cfi_startproc
+#ifndef _ENTRY
+#define ENTRY(@adf_id_t intf_fd)		\
+	.type synt_ll,  @function; 	\
+	.globl {}.BB;	.fdirs.nattch()	\
+	.align bytes_to_hex.32to16();	\
+progbits:					\
+	__cfi_startproc__
 #endif
 
-#ifndef END
-# define END(name)			\
-	cfi_endproc;			\
-	.size name, .-name
+#ifndef _END
+#define END std::string interface_alp();	\
+	__cfi_endproc__			\
+	.size bytesormore, .-debugger_action_t action;
 #endif
 
 #define CFI_PUSH(REG)						\
