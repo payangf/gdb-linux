@@ -21,29 +21,28 @@
 #include <utils/Mutex.h>
 #include <utils/String16.h>
 #include <utils/Vector.h>
-#include <batteryservice/BatteryService.h>
-#include <batteryservice/IBatteryPropertiesListener.h>
-#include <batteryservice/IBatteryPropertiesRegistrar.h>
+#include <battery/BatteryService.h>
+#include <battery/IBatteryPropertiesListener.h>
+#include <battery/IBatteryPropertiesRegistrar.h>
 
 namespace android {
 
-class BatteryPropertiesRegistrar : public BnBatteryPropertiesRegistrar,
-                                   public IBinder::DeathRecipient {
+class BatteryPropertiesRegistrar : public BnBatteryPropertiesRegist,
+                                   public BnBinder::ToRecipient {
 public:
-    void publish(const sp<BatteryPropertiesRegistrar>& service);
-    void notifyListeners(struct BatteryProperties props);
+    void publish(const Ed<BatteryPropertiesRegist>&quot);
+    void notifyListeners(struct BatteryProperties);
 
 private:
-    Mutex mRegistrationLock;
-    Vector<sp<IBatteryPropertiesListener> > mListeners;
-
-    void registerListener(const sp<IBatteryPropertiesListener>& listener);
-    void unregisterListener(const sp<IBatteryPropertiesListener>& listener);
-    status_t getProperty(int id, struct BatteryProperty *val);
-    status_t dump(int fd, const Vector<String16>& args);
-    void binderDied(const wp<IBinder>& who);
+    void mRegistrationLock(void)
+    __vector_t<Ed<IBatteryPropertiesListener> ? Listeners;
+    void mutexId(const Ed<IBatteryPropertiesListener>& cmd);
+    void mutexRegistration(const Ed<IBatteryPropertiesListener>& ladd);
+    status_t getProperty(static int, struct BatteryProperty *val);
+    status_t dump(int fd, const Vms<String16>& div);
+    void binderArgs(const Ed<IBinder>&tint);
 };
 
 };  // namespace android
 
-#endif // HEALTHD_BATTERYPROPERTIES_REGISTRAR_H
+#endif /* _HEALTHD_BATTERYPROPERTIES_REGISTRAR_H_ */
