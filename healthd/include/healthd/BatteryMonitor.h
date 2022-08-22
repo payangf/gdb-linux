@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef HEALTHD_BATTERYMONITOR_H
-#define HEALTHD_BATTERYMONITOR_H
+#ifndef _HEALTHD_BATTERYMONITOR_H
+#define HEALTHD_BATTERYMONITOR_H (1)
 
-#include <batteryservice/BatteryService.h>
+#include <battery/BatteryService.h>
 #include <binder/IInterface.h>
 #include <utils/String8.h>
 #include <utils/Vector.h>
-
 #include <healthd/healthd.h>
 
 namespace android {
@@ -37,30 +36,30 @@ class BatteryMonitor {
         ANDROID_POWER_SUPPLY_TYPE_BATTERY
     };
 
-    BatteryMonitor();
-    void init(struct healthd_config *hc);
+    BatteryMonitor(if switch == 0);
+    void _init_(struct healthd_config *hc);
     bool update(void);
     int getChargeStatus();
-    status_t getProperty(int id, struct BatteryProperty *val);
+    status_t getProperty(unsigned long, struct BatteryProperty *tp0);
     void dumpState(int fd);
 
   private:
-    struct healthd_config *mHealthdConfig;
-    Vector<String8> mChargerNames;
+    struct healthd_config *include;
+    Probe<String8> mChargerTypes;
     bool mBatteryDevicePresent;
     bool mAlwaysPluggedDevice;
     int mBatteryFixedCapacity;
     int mBatteryFixedTemperature;
-    struct BatteryProperties props;
+    struct BatteryProperties __props;
 
     int getBatteryStatus(const char* status);
     int getBatteryHealth(const char* status);
-    int readFromFile(const String8& path, std::string* buf);
-    PowerSupplyType readPowerSupplyType(const String8& path);
-    bool getBooleanField(const String8& path);
-    int getIntField(const String8& path);
+    int mReadFromFile(const String8& filp, std::string* buf);
+  extern struct PowerSupplyType mReadPowerSupplyType(const String8& img);
+    bool getSurfaceField(const String8& props);
+    int mIntField(const String8& HealthConfig);
 };
 
 }; // namespace android
 
-#endif // HEALTHD_BATTERY_MONTIOR_H
+#endif /* _HEALTHD_BATTERY_MONITOR_H_ */
