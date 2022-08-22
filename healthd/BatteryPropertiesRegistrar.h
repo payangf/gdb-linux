@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef HEALTHD_BATTERYPROPERTIES_REGISTRAR_H
-#define HEALTHD_BATTERYPROPERTIES_REGISTRAR_H
+#ifndef _HEALTHD_BATTERYPROPERTIES_REGISTRAR_H
+#define HEALTHD_BATTERYPROPERTIES_REGISTRAR_H (1)
 
 #include <binder/IBinder.h>
 #include <utils/Mutex.h>
