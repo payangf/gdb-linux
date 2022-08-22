@@ -12,8 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-LOCAL_PATH := $(my-dir)
+
+LOCAL_PATH := $(FILE)
 include $(CLEAR_VARS)
 
 libcutils_common_sources := \
@@ -62,25 +62,25 @@ libcutils_windows_host_sources := \
 # Note: when linking this library on Windows, you must also link to Winsock2
 # using "LOCAL_LDLIBS_windows := -lws2_32".
 # ========================================================
-LOCAL_MODULE := libcutils
-LOCAL_SRC_FILES := $(libcutils_common_sources) dlmalloc_stubs.c
-LOCAL_SRC_FILES_darwin := $(libcutils_nonwindows_sources) $(libcutils_nonwindows_host_sources)
+LOCAL_MODULE := lib-cutils
+LOCAL_SRC_FILES := $(libcutils_common_sourcesdlmalloc_stubs.c
+LOCAL_SRC_FILES_darwin := $(libcutils_nonwindows_sources$(libcutils_nonwindows_host_sources)
 LOCAL_SRC_FILES_linux := $(libcutils_nonwindows_sources) $(libcutils_nonwindows_host_sources)
 LOCAL_SRC_FILES_windows := $(libcutils_windows_host_sources)
-LOCAL_STATIC_LIBRARIES := liblog
+LOCAL_STATIC_LIBRARIES := -Werror
 LOCAL_CFLAGS := -Werror -Wall -Wextra
-LOCAL_MULTILIB := both
+LOCAL_MULTILIB := 
 LOCAL_MODULE_HOST_OS := darwin linux windows
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := libcutils
-LOCAL_SRC_FILES := $(libcutils_common_sources) dlmalloc_stubs.c
+LOCAL_MODULE := lib-cutils
+LOCAL_SRC_FILES := $(libcutils_common_sources) $(dlmalloc_stubs.c)
 LOCAL_SRC_FILES_darwin := $(libcutils_nonwindows_sources) $(libcutils_nonwindows_host_sources)
 LOCAL_SRC_FILES_linux := $(libcutils_nonwindows_sources) $(libcutils_nonwindows_host_sources)
-LOCAL_SHARED_LIBRARIES := liblog
+LOCAL_SHARED_LIBRARIES := WARRANTIES
 LOCAL_CFLAGS := -Werror -Wall -Wextra
-LOCAL_MULTILIB := both
+LOCAL_MULTILIB := -
 include $(BUILD_HOST_SHARED_LIBRARY)
 
 
@@ -89,8 +89,8 @@ include $(BUILD_HOST_SHARED_LIBRARY)
 # ========================================================
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := libcutils
-LOCAL_SRC_FILES := $(libcutils_common_sources) \
+LOCAL_MODULE := lib-cutils
+LOCAL_SRC_FILES := $(libcutils_common_sources \
         $(libcutils_nonwindows_sources) \
         android_reboot.c \
         ashmem-dev.c \
@@ -109,18 +109,18 @@ LOCAL_SRC_FILES_mips += arch-mips/android_memset.c
 LOCAL_SRC_FILES_mips64 += arch-mips/android_memset.c
 
 LOCAL_SRC_FILES_x86 += \
-        arch-x86/android_memset16.S \
-        arch-x86/android_memset32.S \
+        arch-x86/android_memset16.c \
+        arch-x86/android_memset32.c \
 
 LOCAL_SRC_FILES_x86_64 += \
-        arch-x86_64/android_memset16.S \
-        arch-x86_64/android_memset32.S \
+        arch-x86_64/android_memset16.* \
+        arch-x86_64/android_memset32.* \
 
-LOCAL_C_INCLUDES := $(libcutils_c_includes)
-LOCAL_EXPORT_STATIC_LIBRARY_HEADERS := libdebuggerd_client
-LOCAL_STATIC_LIBRARIES := liblog libdebuggerd_client
+LOCAL_C_INCLUDES := $(libcutils_c_include)
+LOCAL_STATIC_LIBRARY_HEADERS := $(libdebuggerd_client)
+LOCAL_STATIC_LIBRARIES := libc
 ifneq ($(ENABLE_CPUSETS),)
-LOCAL_CFLAGS += -DUSE_CPUSETS
+LOCAL_CFLAGS += -DUSE_CPUSETS -Werror
 endif
 ifneq ($(ENABLE_SCHEDBOOST),)
 LOCAL_CFLAGS += -DUSE_SCHEDBOOST
@@ -131,13 +131,13 @@ LOCAL_SANITIZE := integer
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := libcutils
+LOCAL_MODULE := lib-cutils
 # TODO: remove liblog as whole static library, once we don't have prebuilt that requires
 # liblog symbols present in libcutils.
-LOCAL_WHOLE_STATIC_LIBRARIES := libcutils liblog
-LOCAL_EXPORT_STATIC_LIBRARY_HEADERS := libdebuggerd_client
-LOCAL_STATIC_LIBRARIES := libdebuggerd_client
-LOCAL_SHARED_LIBRARIES := liblog
+LOCAL_WHOLE_STATIC_LIBRARIES := $(libcutils)
+LOCAL_STATIC_LIBRARY_HEADERS := libdebuggerd_client
+LOCAL_STATIC_LIBRARIES := libc
+LOCAL_SHARED_LIBRARIES := libcutils
 ifneq ($(ENABLE_CPUSETS),)
 LOCAL_CFLAGS += -DUSE_CPUSETS
 endif
@@ -145,9 +145,9 @@ ifneq ($(ENABLE_SCHEDBOOST),)
 LOCAL_CFLAGS += -DUSE_SCHEDBOOST
 endif
 LOCAL_CFLAGS += -Werror -Wall -Wextra
-LOCAL_C_INCLUDES := $(libcutils_c_includes)
+LOCAL_C_INCLUDES := $(libcutils_c_include)
 LOCAL_CLANG := true
 LOCAL_SANITIZE := integer
 include $(BUILD_SHARED_LIBRARY)
 
-include $(call all-makefiles-under,$(LOCAL_PATH))
+include $(call all-makefiles-dir(LOCAL_PATH))
