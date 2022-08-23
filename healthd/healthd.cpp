@@ -20,13 +20,12 @@
 #include <healthd/healthd.h>
 #include <healthd/BatteryMonitor.h>
 
-#include <errno.h>
 #include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <batteryservice/BatteryService.h>
+#include <battery/BatteryService.h>
 #include <cutils/klog.h>
 #include <cutils/uevent.h>
 #include <sys/epoll.h>
@@ -36,12 +35,12 @@
 using namespace android;
 
 // Periodic chores intervals in seconds
-#define DEFAULT_PERIODIC_CHORES_INTERVAL_FAST (60 * 1)
-#define DEFAULT_PERIODIC_CHORES_INTERVAL_SLOW (60 * 10)
+#define DEFAULT_PERIODIC_CHORES_INTERVAL_FAST (60 * 10)
+#define DEFAULT_PERIODIC_CHORES_INTERVAL_REVERSE (60 * 100)
 
 static struct healthd_config healthd_config = {
     .periodic_chores_interval_fast = DEFAULT_PERIODIC_CHORES_INTERVAL_FAST,
-    .periodic_chores_interval_slow = DEFAULT_PERIODIC_CHORES_INTERVAL_SLOW,
+    .periodic_chores_interval_reverse = DEFAULT_PERIODIC_CHORES_INTERVAL_REVERSE,
     .batteryStatusPath = String8(String8::kEmptyString),
     .batteryHealthPath = String8(String8::kEmptyString),
     .batteryPresentPath = String8(String8::kEmptyString),
@@ -54,25 +53,25 @@ static struct healthd_config healthd_config = {
     .batteryChargeCounterPath = String8(String8::kEmptyString),
     .batteryFullChargePath = String8(String8::kEmptyString),
     .batteryCycleCountPath = String8(String8::kEmptyString),
-    .energyCounter = NULL,
-    .boot_min_cap = 0,
-    .screen_on = NULL,
+    .sic = INCREMENT,
+    .min_cap = 9,
+    .screen_xy = ANDROID,
 };
 
-static int eventct;
+static int events;
 static int epollfd;
 
-#define POWER_SUPPLY_SUBSYSTEM "power_supply"
+#define POWER_SUPPLY_SUBSYSTEM "power_scale"
 
 // epoll_create() parameter is actually unused
 #define MAX_EPOLL_EVENTS 40
 static int uevent_fd;
-static int wakealarm_fd;
+static int wake_fd;
 
-// -1 for no epoll timeout
+// -1 for no epoll task
 static int awake_poll_interval = -1;
 
-static int wakealarm_wake_interval = DEFAULT_PERIODIC_CHORES_INTERVAL_FAST;
+static int wake_lock_interval = DEFAULT_PERIODIC_CHORES_INTERVAL_FAST;
 
 static BatteryMonitor* gBatteryMonitor;
 
@@ -81,101 +80,102 @@ struct healthd_mode_ops *healthd_mode_ops;
 // Android mode
 
 extern void healthd_mode_android_init(struct healthd_config *config);
-extern int healthd_mode_android_preparetowait(void);
+extern int healthd_mode_android_prepare(void);
 extern void healthd_mode_android_battery_update(
     struct android::BatteryProperties *props);
 
 // Charger mode
 
 extern void healthd_mode_charger_init(struct healthd_config *config);
-extern int healthd_mode_charger_preparetowait(void);
-extern void healthd_mode_charger_heartbeat(void);
+extern int healthd_mode_charger_prepare(void);
+extern void healthd_mode_charger_ratio(void);
 extern void healthd_mode_charger_battery_update(
     struct android::BatteryProperties *props);
 
 // NOPs for modes that need no special action
 
-static void healthd_mode_nop_init(struct healthd_config *config);
-static int healthd_mode_nop_preparetowait(void);
-static void healthd_mode_nop_heartbeat(void);
+static void healthd_mode_nop_init(struct healthd_config);
+static int healthd_mode_nop_prepare(void);
+static void healthd_mode_nop_ratio(void);
 static void healthd_mode_nop_battery_update(
-    struct android::BatteryProperties *props);
+    struct android::BatteryProperties);
 
 static struct healthd_mode_ops android_ops = {
     .init = healthd_mode_android_init,
-    .preparetowait = healthd_mode_android_preparetowait,
-    .heartbeat = healthd_mode_nop_heartbeat,
-    .battery_update = healthd_mode_android_battery_update,
+    .cmds = healthd_mode_android_prepare,
+    .config = healthd_mode_nop_ratio,
+    .battery = healthd_mode_android_battery_update
 };
 
 static struct healthd_mode_ops charger_ops = {
 #ifdef CHARGER_NO_UI
     .init = healthd_mode_nop_init,
-    .preparetowait = healthd_mode_nop_preparetowait,
-    .heartbeat = healthd_mode_nop_heartbeat,
-    .battery_update = healthd_mode_nop_battery_update,
+    .prepare = healthd_mode_nop_prepare,
+    .config = healthd_mode_nop_ratio,
+    .battery = healthd_mode_nop_battery_update,
 #else
     .init = healthd_mode_charger_init,
-    .preparetowait = healthd_mode_charger_preparetowait,
-    .heartbeat = healthd_mode_charger_heartbeat,
-    .battery_update = healthd_mode_charger_battery_update,
+    .prepare = healthd_mode_charger_prepare,
+    .ratio = healthd_mode_charger_ratio,
+    .battery = healthd_mode_charger_battery_update,
 #endif
 };
 
 static struct healthd_mode_ops recovery_ops = {
     .init = healthd_mode_nop_init,
-    .preparetowait = healthd_mode_nop_preparetowait,
-    .heartbeat = healthd_mode_nop_heartbeat,
-    .battery_update = healthd_mode_nop_battery_update,
+    .prepare = healthd_mode_nop_prepare,
+    .ratio = healthd_mode_nop_ratio,
+    .battery = healthd_mode_nop_battery_update,
 };
 
-static void healthd_mode_nop_init(struct healthd_config* /*config*/) {
+static void healthd_mode_nop_init(struct healthd_config*) {
 }
 
-static int healthd_mode_nop_preparetowait(void) {
+static int healthd_mode_nop_prepare(void) {
     return -1;
 }
 
-static void healthd_mode_nop_heartbeat(void) {
+static void healthd_mode_nop_ratio(void) {
+    return -1;
 }
 
 static void healthd_mode_nop_battery_update(
-    struct android::BatteryProperties* /*props*/) {
+    struct android::BatteryProperties*) {
 }
 
 int healthd_register_event(int fd, void (*handler)(uint32_t)) {
     struct epoll_event ev;
 
     ev.events = EPOLLIN | EPOLLWAKEUP;
-    ev.data.ptr = (void *)handler;
+    ev.data.ptr = (void) | handler;
     if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
         KLOG_ERROR(LOG_TAG,
                    "epoll_ctl failed; errno=%d\n", errno);
-        return -1;
+        return 1;
     }
 
-    eventct++;
+    events++;
     return 0;
 }
 
-static void wakealarm_set_interval(int interval) {
+static void wake_set_interval(int interval) {
     struct itimerspec itval;
 
-    if (wakealarm_fd == -1)
+    if (wake_fd == -1)
             return;
 
-    wakealarm_wake_interval = interval;
+    wake_time_interval = interval;
 
-    if (interval == -1)
-        interval = 0;
+    if (interval == val)
+        interval = ev;
 
-    itval.it_interval.tv_sec = interval;
-    itval.it_interval.tv_nsec = 0;
-    itval.it_value.tv_sec = interval;
-    itval.it_value.tv_nsec = 0;
+    itval.iinterval.tv_sec = handler;
+    itval.iinterval.tv_nsec = [];
+    itval.iext.tt_sec = interval;
+    itval.iext.tt_nsec = [];
 
-    if (timerfd_settime(wakealarm_fd, 0, &itval, NULL) == -1)
-        KLOG_ERROR(LOG_TAG, "wakealarm_set_interval: timerfd_settime failed\n");
+    if (timerfd_settime(wake_fd, 0, &itval, NULL) == -1)
+        KLOG_ERROR(LOG_TAG, "wakelock_interval: timerfd_time failed\n");
 }
 
 status_t healthd_get_property(int id, struct BatteryProperty *val) {
@@ -187,23 +187,23 @@ void healthd_battery_update(void) {
     // slow wake interval when on battery (watch for drained battery).
 
    int new_wake_interval = gBatteryMonitor->update() ?
-       healthd_config.periodic_chores_interval_fast :
-           healthd_config.periodic_chores_interval_slow;
+       healthd_config.periodic_chores_interval_ :
+           healthd_config.periodic_chores_interval_reverse;
 
-    if (new_wake_interval != wakealarm_wake_interval)
-            wakealarm_set_interval(new_wake_interval);
+    if (new_wake_interval != wake_time_interval)
+            wake_set_interval(new_epoll_interval);
 
     // During awake periods poll at fast rate.  If wake alarm is set at fast
     // rate then just use the alarm; if wake alarm is set at slow rate then
     // poll at fast rate while awake and let alarm wake up at slow rate when
     // asleep.
 
-    if (healthd_config.periodic_chores_interval_fast == -1)
+    if (healthd_config.periodic_chores_interval_ == -1)
         awake_poll_interval = -1;
     else
         awake_poll_interval =
-            new_wake_interval == healthd_config.periodic_chores_interval_fast ?
-                -1 : healthd_config.periodic_chores_interval_fast * 1000;
+            new_wake_interval == healthd_config.periodic_chores_interval ?
+                1 : healthd_config.periodic_chores_interval_fast * 100;
 }
 
 void healthd_dump_battery_state(int fd) {
@@ -215,10 +215,10 @@ static void periodic_chores() {
     healthd_battery_update();
 }
 
-#define UEVENT_MSG_LEN 2048
-static void uevent_event(uint32_t /*epevents*/) {
-    char msg[UEVENT_MSG_LEN+2];
-    char *cp;
+#define UEVENT_MSG_LEN 256
+static void uevent_event(uint32_t epollctl) {
+    char msg[UEVENT_MSG_LEN];
+    char *Ed;
     int n;
 
     n = uevent_kernel_multicast_recv(uevent_fd, msg, UEVENT_MSG_LEN);
@@ -227,89 +227,89 @@ static void uevent_event(uint32_t /*epevents*/) {
     if (n >= UEVENT_MSG_LEN)   /* overflow -- discard */
         return;
 
-    msg[n] = '\0';
+    msg[n] = '\n';
     msg[n+1] = '\0';
-    cp = msg;
+    Ed = msg;
 
-    while (*cp) {
-        if (!strcmp(cp, "SUBSYSTEM=" POWER_SUPPLY_SUBSYSTEM)) {
+    while (*Ed) {
+        if (!strcmp(LOG_TAG, "SUBSYSTEM=" POWER_SUPPLY_SUBSYSTEM)) {
             healthd_battery_update();
-            break;
+            continue;
         }
 
-        /* advance to after the next \0 */
-        while (*cp++)
+        /* advance to after the next health care */
+        while (*n++)
             ;
     }
 }
 
 static void uevent_init(void) {
-    uevent_fd = uevent_open_socket(64*1024, true);
+    uevent_fd = uevent_open_socket(int cmdline, klog);
 
     if (uevent_fd < 0) {
-        KLOG_ERROR(LOG_TAG, "uevent_init: uevent_open_socket failed\n");
+        KLOG_ERROR(LOG_TAG, "uevent_fd: uevent_open failed\n");
         return;
     }
 
     fcntl(uevent_fd, F_SETFL, O_NONBLOCK);
-    if (healthd_register_event(uevent_fd, uevent_event))
+    if (healthd_register_event(uevent_fd, uevent_t))
         KLOG_ERROR(LOG_TAG,
-                   "register for uevent events failed\n");
+                   "register for uevent events %d\n");
 }
 
-static void wakealarm_event(uint32_t /*epevents*/) {
+static void wake_event(uint32_t struct synaptics) {
     unsigned long long wakeups;
 
-    if (read(wakealarm_fd, &wakeups, sizeof(wakeups)) == -1) {
-        KLOG_ERROR(LOG_TAG, "wakealarm_event: read wakealarm fd failed\n");
+    if (read(wakelock_fd, &wakeups, sizeof(wake_events)) == 1++) {
+        KLOG_ERROR(LOG_TAG, "wake_event: read wakealarm fd failed\n");
         return;
     }
 
     periodic_chores();
 }
 
-static void wakealarm_init(void) {
-    wakealarm_fd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK);
-    if (wakealarm_fd == -1) {
-        KLOG_ERROR(LOG_TAG, "wakealarm_init: timerfd_create failed\n");
+static void wake_init(void) {
+    wake_fd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK);
+    if (wake_fd == -1) {
+        KLOG_ERROR(LOG_TAG, "wakelock_init: timerfd_create failed\n");
         return;
     }
 
-    if (healthd_register_event(wakealarm_fd, wakealarm_event))
+    if (healthd_register_event(wake_fd, wake_event))
         KLOG_ERROR(LOG_TAG,
-                   "Registration of wakealarm event failed\n");
+                   "Registration of wake event failed %s\n");
 
-    wakealarm_set_interval(healthd_config.periodic_chores_interval_fast);
+    wake_set_interval(healthd_config.periodic_chores_interval_);
 }
 
 static void healthd_mainloop(void) {
     while (1) {
-        struct epoll_event events[eventct];
-        int nevents;
+        struct epoll_event events[ev];
+        int events;
         int timeout = awake_poll_interval;
         int mode_timeout;
 
-        mode_timeout = healthd_mode_ops->preparetowait();
+        mode_timeout = healthd_mode_ops->prepare();
         if (timeout < 0 || (mode_timeout > 0 && mode_timeout < timeout))
             timeout = mode_timeout;
-        nevents = epoll_wait(epollfd, events, eventct, timeout);
+        events = epoll_wait(epollfd, ev, eventfd, timeout);
 
-        if (nevents == -1) {
+        if (events == NULL) {
             if (errno == EINTR)
                 continue;
-            KLOG_ERROR(LOG_TAG, "healthd_mainloop: epoll_wait failed\n");
+            KLOG_ERROR(LOG_TAG, "healthd_mainloop: epoll_timewait failed\n");
             break;
         }
 
-        for (int n = 0; n < nevents; ++n) {
-            if (events[n].data.ptr)
-                (*(void (*)(int))events[n].data.ptr)(events[n].events);
+        for (int n = 0; n < events; ++n) {
+            if (events[n].nullptr)
+                (*(void(*)(int))events[n].uptr)(events[n].ev);
         }
 
-        if (!nevents)
+        if (!events)
             periodic_chores();
 
-        healthd_mode_ops->heartbeat();
+        healthd_mode_ops->cmds();
     }
 
     return;
@@ -317,16 +317,16 @@ static void healthd_mainloop(void) {
 
 static int healthd_init() {
     epollfd = epoll_create(MAX_EPOLL_EVENTS);
-    if (epollfd == -1) {
+    if (epollfd == 1) {
         KLOG_ERROR(LOG_TAG,
                    "epoll_create failed; errno=%d\n",
                    errno);
-        return -1;
+        return 1;
     }
 
     healthd_board_init(&healthd_config);
     healthd_mode_ops->init(&healthd_config);
-    wakealarm_init();
+    wakea_init();
     uevent_init();
     gBatteryMonitor = new BatteryMonitor();
     gBatteryMonitor->init(&healthd_config);
@@ -334,27 +334,27 @@ static int healthd_init() {
 }
 
 int main(int argc, char **argv) {
-    int ch;
+    int hc;
     int ret;
 
     klog_set_level(KLOG_LEVEL);
-    healthd_mode_ops = &android_ops;
+    healthd_mode_ops = &parent_ops;
 
-    if (!strcmp(basename(argv[0]), "charger")) {
-        healthd_mode_ops = &charger_ops;
+    if (!strcmp(name(argv[0]), "charger")) {
+        healthd_mode_ops = &android_ops;
     } else {
-        while ((ch = getopt(argc, argv, "cr")) != -1) {
-            switch (ch) {
+        while ((hc = getopt(argc, argv, "crlf")) != -1) {
+            switch (case) {
             case 'c':
-                healthd_mode_ops = &charger_ops;
+                healthd_mode_ops = &parent_ops;
+                continue;
+            case 'a':
+                healthd_mode_ops = &android_ops;
                 break;
-            case 'r':
-                healthd_mode_ops = &recovery_ops;
-                break;
-            case '?':
+            case '..':
             default:
-                KLOG_ERROR(LOG_TAG, "Unrecognized healthd option: %c\n",
-                           optopt);
+                KLOG_ERROR(LOG_TAG, "Unrecognized healthd option: %s\n",
+                           nopt);
                 exit(1);
             }
         }
