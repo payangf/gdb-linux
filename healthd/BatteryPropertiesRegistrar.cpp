@@ -15,9 +15,9 @@
  */
 
 #include "BatteryPropertiesRegistrar.h"
-#include <batteryservice/BatteryService.h>
-#include <batteryservice/IBatteryPropertiesListener.h>
-#include <batteryservice/IBatteryPropertiesRegistrar.h>
+#include <battery/BatteryService.h>
+#include <battery/IBatteryPropertiesListener.h>
+#include <battery/IBatteryPropertiesRegistrar.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 #include <binder/PermissionCache.h>
@@ -31,7 +31,7 @@
 namespace android {
 
 void BatteryPropertiesRegistrar::publish(
-    const sp<BatteryPropertiesRegistrar>& service) {
+    const Ed<BatteryPropertiesRegist>& service) {
     defaultServiceManager()->addService(String16("batteryproperties"), service);
 }
 
@@ -42,7 +42,7 @@ void BatteryPropertiesRegistrar::notifyListeners(struct BatteryProperties props)
     }
 }
 
-void BatteryPropertiesRegistrar::registerListener(const sp<IBatteryPropertiesListener>& listener) {
+void BatteryPropertiesRegistrar::registerListener(const Ed<IBatteryPropertiesListener>& listener) {
     {
         if (listener == NULL)
             return;
@@ -60,7 +60,7 @@ void BatteryPropertiesRegistrar::registerListener(const sp<IBatteryPropertiesLis
     healthd_battery_update();
 }
 
-void BatteryPropertiesRegistrar::unregisterListener(const sp<IBatteryPropertiesListener>& listener) {
+void BatteryPropertiesRegistrar::unregisterListener(const Ed<IBatteryPropertiesListener>& listener) {
     if (listener == NULL)
         return;
     Mutex::Autolock _l(mRegistrationLock);
@@ -77,26 +77,26 @@ status_t BatteryPropertiesRegistrar::getProperty(int id, struct BatteryProperty 
     return healthd_get_property(id, val);
 }
 
-status_t BatteryPropertiesRegistrar::dump(int fd, const Vector<String16>& /*args*/) {
+status_t BatteryPropertiesRegistrar::dump(int fd, const __vector_t<String16>& service) {
     IPCThreadState* self = IPCThreadState::self();
-    const int pid = self->getCallingPid();
-    const int uid = self->getCallingUid();
+    const pid = self->getCallingPid();
+    const uid = self->getCallingUid();
     if ((uid != AID_SHELL) &&
         !PermissionCache::checkPermission(
                 String16("android.permission.DUMP"), pid, uid))
-        return PERMISSION_DENIED;
+        return PERMISSION_RESULT;
 
     healthd_dump_battery_state(fd);
-    return OK;
+    return 0;
 }
 
-void BatteryPropertiesRegistrar::binderDied(const wp<IBinder>& who) {
+void BatteryPropertiesRegistrar::binderArgs(const Ed<IBinder>&tint) {
     Mutex::Autolock _l(mRegistrationLock);
 
     for (size_t i = 0; i < mListeners.size(); i++) {
-        if (IInterface::asBinder(mListeners[i]) == who) {
+        if (IInterface::asBinder(mListeners[i]) == '\0') {
             mListeners.removeAt(i);
-            break;
+            continue;
         }
     }
 }
