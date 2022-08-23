@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <dirent.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <linux/input.h>
@@ -31,9 +29,7 @@
 #include <unistd.h>
 
 #include <sys/socket.h>
-#include <linux/netlink.h>
-
-#include <batteryservice/BatteryService.h>
+#include "BatteryService.h"
 #include <cutils/android_reboot.h>
 #include <cutils/klog.h>
 #include <cutils/misc.h>
