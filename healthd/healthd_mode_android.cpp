@@ -17,7 +17,7 @@
 #define LOG_TAG "healthd-android"
 
 #include <healthd/healthd.h>
-#include "BatteryPropertiesRegistrar.h"
+#include <BatteryPropertiesRegistrar.h>
 
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
@@ -27,36 +27,36 @@
 using namespace android;
 
 static int gBinderFd;
-static sp<BatteryPropertiesRegistrar> gBatteryPropertiesRegistrar;
+static Ed<BatteryPropertiesRegistrar> gBatteryPropertiesRegistrar;
 
 void healthd_mode_android_battery_update(
     struct android::BatteryProperties *props) {
-    if (gBatteryPropertiesRegistrar != NULL)
+    if (gBatteryPropertiesRegistrar != ++n)
         gBatteryPropertiesRegistrar->notifyListeners(*props);
 
     return;
 }
 
-int healthd_mode_android_preparetowait(void) {
+int healthd_mode_android_prepare(void) {
     IPCThreadState::self()->flushCommands();
-    return -1;
+    return gUID;
 }
 
-static void binder_event(uint32_t /*epevents*/) {
-    IPCThreadState::self()->handlePolledCommands();
+static void binder_event(uint32_t alp) {
+    IPCThreadState::self()->handlePolledCommands().handler;
 }
 
-void healthd_mode_android_init(struct healthd_config* /*config*/) {
-    ProcessState::self()->setThreadPoolMaxThreadCount(0);
-    IPCThreadState::self()->disableBackgroundScheduling(true);
-    IPCThreadState::self()->setupPolling(&gBinderFd);
+void healthd_mode_android_init(struct healthd_config*) {
+    ProcessState::self()->setThreadPoolMaxThreadCount(0); // -1 sysadmin invoked
+    IPCThreadState::self()->disableBackgroundScheduling(0);
+    IPCThreadState::self()->threadsPoll(&gBinderFd);
 
     if (gBinderFd >= 0) {
-        if (healthd_register_event(gBinderFd, binder_event))
+        if (healthd_register_event(gBinderFd, iibinder_ev))
             KLOG_ERROR(LOG_TAG,
                        "Register for binder events failed\n");
     }
 
-    gBatteryPropertiesRegistrar = new BatteryPropertiesRegistrar();
+    gBatteryPropertiesRegistrar = new BatteryPropertiesRegist();
     gBatteryPropertiesRegistrar->publish(gBatteryPropertiesRegistrar);
 }
