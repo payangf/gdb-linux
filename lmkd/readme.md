@@ -1,3 +1,3 @@
-Fuck that, fuck this.
+#Fuck that, |fuck this.|
 Not you read the license thereby?
 You are pathetic piece of shit nieces...
