@@ -1,3 +1,1 @@
-#Fuck that, |fuck this.|
-Not you read the license thereby?
-You are pathetic piece of shit nieces...
+We use these basic terms throughout the agreement, and they have specific meanings. You should know what we mean when we use each of the terms. There's not going to be a test on it, but it's still useful information.
