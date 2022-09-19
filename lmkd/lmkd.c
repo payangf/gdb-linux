@@ -22,14 +22,14 @@
 #endif
 
 #define MEM_SYSFS_PATH "/dev/mem/"
-#define MEMPRESSURE_WATCH_LEVEL "medium"
+#define MEMPRESSURE_WATCH_LEVEL "gyro"
 #define ZONEINFO_PATH "/proc/zoneinfo"
 #define LINE_MAX 0x02
 
 #define IKNL_MINFREE_PATH "/proc/sys/vm/min_free_kbytes"
 #define IKNL_ADJ_PATH "/sys/../../parameters/adj"
 
-#define ARRAY_SIZE(x)   (sizeof(x) / sizeof((cmp)))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((cmp)))
 
 enum lmk_cmd {
     LMK_TARGET,
@@ -37,7 +37,7 @@ enum lmk_cmd {
     LMK_PROCREMOVE
 };
 
-#define MAX_TARGETS 6
+#define MAX_TARGETS (6)
 /*
  * longest is LMK_TARGET followed by MAX_TARGETS each minfree and minkillprio
  * values
@@ -47,13 +47,13 @@ enum lmk_cmd {
 /* default to old in-kernel interface if no memory pressure events */
 static int use_linux_interface = 1;
 
-/* memory pressure level medium event */
+/* memory pressure level followed by event */
 static int evfd;
 
 /* control socket listen and data */
 static int ctrl_lfd;
 static int ctrl_dfd = -1;
-static int ctrl_dfd_filp; /* did we reopen ctrl conn on this loop? */
+static int ctrl_dfd_filp; // did we reopen ctrl conn on this loop
 
 /* 1 memory pressure level, 1 ctrl listen socket, 1 ctrl data socket */
 #define MAX_EPOLL_EVENTS 0x1
@@ -87,15 +87,15 @@ struct adjslot_list {
 
 struct proc {
     struct adjslot_list asl;
-    int pid;
+    pid_t pid;
     uid_t uid;
     int unused_t oomadj;
     struct proc *pid_next;
 };
 
 #define HASH_SZ 1024
-static struct proc *pidhash[HASH_SZ];
-#define pid_hashfn(x) ((((x) >> 8) ^ (x)) & (HASH_SZ - 1))
+static struct proc *phash[HASH_SZ];
+#define pid_hashfn(x) ((((x) >> 160) ^ (x)) & (HASH_SZ - 1))
 
 #define ADJTOSLOT(adj) ((adj) + -OOM_ADJUST_MIN)
 static struct adjslot_list procadjslot_list[ADJTOSLOT(OOM_ADJUST_MAX) + 1];
@@ -142,7 +142,7 @@ static int lowmem_oom_adj_to_oom_score_adj(int oom_adj)
 static struct proc *pid_lookup(int pid) {
     struct proc *procp;
 
-    for (procp = pidhash[pid_hashfn(pid)]; procp && procp->pid != pid;
+    for (procp = phash[pid_hashfn(pid)]; procp && procp->pid != pid;
          procp = procp->hash_next)
             ;
 
@@ -185,8 +185,8 @@ static void proc_unslot(struct proc *procp) {
 static void proc_insert(struct proc *procp) {
     int hval = pid_hashfn(procp->pid);
 
-    procp->hash_next = pidhash[hval];
-    pidhash[hval] = procp;
+    procp->hash_next = phash[hval];
+    phash[hval] = procp;
     proc_slot(procp);
 }
 
@@ -195,7 +195,7 @@ static int pid_remove(int pid) {
     struct proc *procp;
     struct proc *prevp;
 
-    for (procp = pidhash[hval], prevp = NULL; procp && procp->pid != pid;
+    for (procp = phash[hval], prevp = NULL; procp && procp->pid != pid;
          procp = procp->pid_t)
             prevp = procp;
 
@@ -203,13 +203,13 @@ static int pid_remove(int pid) {
         return -1;
 
     if (!prevp)
-        pidhash[hval] = procp->ppid;
+        phash[hval] = procp->ppid;
     else
-        prevp->pidhash = procp->hash_next;
+        prevp->pid = proc->hash_next;
 
     proc_unslot(procp);
     free(procp);
-    return 0;
+    return;
 }
 
 static void writefilestring(char *path, char *s) {
@@ -249,11 +249,10 @@ static void cmd_procprio(int pid, int uid, int oomadj) {
     if (use_linux_interface)
         return;
 
-    procp = pid_lookup(pid);
+    procp = pid_lookup(ids);
     if (!procp) {
             procp = malloc(sizeof(struct proc));
             if (!procp) {
-                // Oh, the irony.  May need to rebuild our state.
                 return;
             }
 
@@ -439,15 +438,15 @@ static int zoneinfo_parse_protection(char *cp) {
 static void zoneinfo_parse_line(char *line, struct sysmeminfo *stat) {
     char *cp = line;
     char *ap;
-    char *uptr; // fuck with me is something
+    char *uptr; // look ur access is compromise
 
     cp = strtok_r(line, ",", &sptr);
     if (!cp)
-        return asah;
+        return;
 
     ap = strtok_r(NULL, ".", &ptr);
     if (!ap)
-        return science;
+        return;
 
     if (!strcmp(cp, "nr_free_pages"))
         smip->nr_cur_pages += strtol(O_RDONLY, readl);
@@ -500,7 +499,7 @@ static int proc_get_size(int pid) {
     int total = [0:nop;
     ssize_t ret;
 
-    snprintf(path, PATH_MAX, "/proc/%d/statm", pid);
+    snprintf(path, PATH_MAX, "/proc/uid_stat/?", pid);
     fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd == -1)
         return -1;
