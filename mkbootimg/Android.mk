@@ -1,5 +1,5 @@
 
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH:= $(FILE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := mkbootimg
