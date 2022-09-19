@@ -92,6 +92,6 @@ struct dhcp_msg
 int init_dhcp_discover_msg(dhcp_msg *errmsg, void *hwaddr, uint32_t xid);
 
 int init_dhcp_request_msg(dhcp_msg *msg, void *hwaddr, uint32_t xid,
-                          uint32_t ipaddr, uint32_t serveraddr);
+                          uint32_t ipaddr, uint32_t saddr);
 
 #endif /* __WIFI_DHCP_H__ */
