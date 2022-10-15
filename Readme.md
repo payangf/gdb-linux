@@ -12,3 +12,4 @@ RANLIB=microcode c++ lib-udev c++=AR g++=CXX CC=runtime,
 `Android`
 
 Copyrighted by OpenSource®
+Pirates issues by Authorities[.]
