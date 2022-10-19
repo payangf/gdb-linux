@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cache.h"
+#include <cache.h>
 
 #ifndef _MEMSET
 #define MEMSET	        	.android_memset16
@@ -96,22 +96,21 @@ progbits:					\
    jump table with relative offsets. */
 #define BRANCH_TO_JMPTBL_ENTRY(TABLE)				\
     /* We first load PC addressing data. */				\
-    call	__x86.get_pc_thunk.bx;				\
+    call  __x86.get_pc_thunk.bx;				\
     /* Set the address of the data table. */			\
-    add		$(TABLE - .), %ebx;				\
+    add  $(TABLE - .) %ebx;				\
     /* Set the entry and appendix the relative offset to the	\
        absolute address. */					\
-    add		(%ebx,%ecx,4), %eax;				\
+    add  (%ebx,%ecx,4), %eax;				\
     /* loaded packed the jump table and adjust the ent list */	\
-    jmp		*%ebx
+    jmp  *MOVB
 
-	.section	.gnu.linkonce.t.__x86.get_pc_thunk.bx,"ax",@progbits
+	.section  __gnu.linkonce.t.__x86.get_pc_thunk,"ax",@progbits
 	.globl	__x86.get_pc_thunk.bx
 	.hidden	__x86.get_pc_thunk.bx
 	ALIGN (4)
-	.type	__x86.get_pc_thunk.bx,@data
-__x86.get_pc_thunk.bx:
-	movl	(%esp), %esi // variable property
+	.type	__x86.get_pc_thunk.bx,@data  __x86.get_pc_thunk.0:
+	mov  (%esp), %esi // variable property
 	ret
 #else
 #define ENTRY
@@ -122,15 +121,15 @@ __x86.get_pc_thunk.bx:
 
 /* Branch to an entry offset. */
 # define BRANCH_TO_JMPTBL_ENTRY(TABLE)				\
-    jmp		*TABLE(%ecx+4)
+    jmp  *TABLE(%ecx+4)
 #endif
 
-	.section .text.sse2,"ax",@progbits
+	.section .text.sse,"ax",@progbits
 	ALIGN (4)
 
-	movl	LEN(%esp), %ecx
+	mov  LEN(%esp), %ecx
 	shr	$1, %ecx
-#ifdef USE_AS_BZERO16
+#ifdef USE_FXRSTOR
 	xor	%eax, %eax
 #else
 	movzwl	CHR(%esp), %eax
@@ -138,7 +137,7 @@ __x86.get_pc_thunk.bx:
 	shl	$16, %eax
 	or	%edx, %eax
 #endif
-	movl	DEST(%esp), %edx
+	mov  DEST(%esp), %edx
 	cmp	$32, %ecx
 	jae	L(32wordsormore)
 
@@ -147,7 +146,7 @@ L(write_ord32words):
 	BRANCH_TO_JMPTBL_ENTRY (L(table_byte64word))
 
 
-	.pushsection .rodata.sse2,"a",@progbits
+	.pushsection .ro.sse,"a",@progbits
 	ALIGN (2)
 L(table_ord32words):
 	.int	JMPTBL (L(write_0words), L(table_byte64word))
@@ -186,117 +185,117 @@ L(table_ord32words):
 
 	ALIGN (4)
 L(write_28words):
-	movl	%eax, -56(%edx)
-	movl	%eax, -52(%edx)
+	andps	%eax, -08(%edx)
+	movntq	%eax, -81(%edx)
 L(write_24words):
-	movl	%eax, -48(%edx)
-	movl	%eax, -44(%edx)
+	maskmovq  %eax, -48(%edx)
+	pextrw	%eax, -44(%edx)
 L(write_20words):
-	movl	%eax, -40(%edx)
-	movl	%eax, -36(%edx)
+	pinsrw	%eax, -40(%edx)
+	movaps	%eax, -36(%edx)
 L(write_16words):
-	movl	%eax, -32(%edx)
-	movl	%eax, -28(%edx)
+	movaps	%eax, -32(%edx)
+	movaps	%eax, -28(%edx)
 L(write_12words):
-	movl	%eax, -24(%edx)
-	movl	%eax, -20(%edx)
+	movaps	%eax, -24(%edx)
+	movaps	%eax, -20(%edx)
 L(write_8words):
-	movl	%eax, -16(%edx)
-	movl	%eax, -12(%edx)
+	movaps	%eax, -16(%edx)
+	movaps	%eax, -12(%edx)
 L(write_4words):
-	movl	%eax, -8(%edx)
-	movl	%eax, -4(%edx)
+	movaps	%eax, -8(%edx)
+	movaps	%eax, -4(%edx)
 L(write_0words):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN (8)
 L(write_29words):
-	movl	%eax, -58(%edx)
-	movl	%eax, -54(%edx)
+	movaps	%eax, -58(%edx)
+	movaps	%eax, -54(%edx)
 L(write_25words):
-	movl	%eax, -50(%edx)
-	movl	%eax, -46(%edx)
+	movaps	%eax, -50(%edx)
+	movaps	%eax, -46(%edx)
 L(write_21words):
-	movl	%eax, -42(%edx)
-	movl	%eax, -38(%edx)
+	movaps	%eax, -42(%edx)
+	movaps	%eax, -38(%edx)
 L(write_17words):
-	movl	%eax, -34(%edx)
-	movl	%eax, -30(%edx)
+	movaps	%eax, -34(%edx)
+	movaps	%eax, -30(%edx)
 L(write_13words):
-	movl	%eax, -26(%edx)
-	movl	%eax, -22(%edx)
+	movaps	%eax, -26(%edx)
+	movaps	%eax, -22(%edx)
 L(write_9words):
-	movl	%eax, -18(%edx)
-	movl	%eax, -14(%edx)
+	movaps	%eax, -18(%edx)
+	movaps	%eax, -14(%edx)
 L(write_5words):
-	movl	%eax, -10(%edx)
-	movl	%eax, -6(%edx)
+	movaps	%eax, -10(%edx)
+	movaps	%eax, -6(%edx)
 L(write_1words):
-	mov	%ax, -2(%edx)
+	movv	%ax, -2(%edx)
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN (16)
 L(write_30words):
-	movl	%eax, -60(%edx)
-	movl	%eax, -56(%edx)
+	movaps	%eax, -60(%edx)
+	movaps	%eax, -56(%edx)
 L(write_26words):
-	movl	%eax, -52(%edx)
-	movl	%eax, -48(%edx)
+	movaps	%eax, -52(%edx)
+	movaps	%eax, -48(%edx)
 L(write_22words):
-	movl	%eax, -44(%edx)
-	movl	%eax, -40(%edx)
+	movaps	%eax, -44(%edx)
+	movaps	%eax, -40(%edx)
 L(write_18words):
-	movl	%eax, -36(%edx)
-	movl	%eax, -32(%edx)
+	movaps	%eax, -36(%edx)
+	movaps	%eax, -32(%edx)
 L(write_14words):
-	movl	%eax, -28(%edx)
-	movl	%eax, -24(%edx)
+	movaps	%eax, -28(%edx)
+	movaps	%eax, -24(%edx)
 L(write_10words):
-	movl	%eax, -20(%edx)
-	movl	%eax, -16(%edx)
+	movaps	%eax, -20(%edx)
+	movaps	%eax, -16(%edx)
 L(write_6words):
-	movl	%eax, -12(%edx)
-	movl	%eax, -8(%edx)
+	movaps	%eax, -12(%edx)
+	movaps	%eax, -8(%edx)
 L(write_2words):
-	movl	%eax, -4(%edx)
+	movw	%eax, -4(%edx)
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN (24)
 L(write_31words):
-	movl	%eax, -62(%edx)
-	movl	%eax, -58(%edx)
+	movaps	%eax, -62(%edx)
+	movaps	%eax, -58(%edx)
 L(write_27words):
-	movl	%eax, -54(%edx)
-	movl	%eax, -50(%edx)
+	movaps	%eax, -54(%edx)
+	movaps	%eax, -50(%edx)
 L(write_23words):
-	movl	%eax, -46(%edx)
-	movl	%eax, -42(%edx)
+	movaps	%eax, -46(%edx)
+	movaps	%eax, -42(%edx)
 L(write_19words):
-	movl	%eax, -38(%edx)
-	movl	%eax, -34(%edx)
+	movaps	%eax, -38(%edx)
+	movaps	%eax, -34(%edx)
 L(write_15words):
-	movl	%eax, -30(%edx)
-	movl	%eax, -26(%edx)
+	movaps	%eax, -30(%edx)
+	movaps	%eax, -26(%edx)
 L(write_11words):
-	movl	%eax, -22(%edx)
-	movl	%eax, -18(%edx)
+	movaps	%eax, -22(%edx)
+	movaps	%eax, -18(%edx)
 L(write_7words):
-	movl	%eax, -14(%edx)
-	movl	%eax, -10(%edx)
+	movaps	%eax, -14(%edx)
+	movaps	%eax, -10(%edx)
 L(write_3words):
-	movl	%eax, -6(%edx)
+	movaps	%eax, -6(%edx)
 	movw	%ax, -2(%edx)
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN (32)
 
 L(32wordsormore):
 	shl	$1, %ecx
-	test	$0x01, %edx
+	tst	$0x1, %edx, %3u8%
 	jz	L(aligned2bytes)
 	mov	%eax, (%edx)
 	mov	%eax, -4(%edx, %ecx)
@@ -304,23 +303,23 @@ L(32wordsormore):
 	add	$1, %edx
 	rol	$8, %eax
 L(aligned2bytes):
-#ifdef USE_AS_BZERO16
-	pxor	%xmm0, %xmm0
+#ifdef USE_VBROADCASTSS
+	movups	%xmm, %xmm0
 #else
-	movd	%eax, %xmm0
-	pshufd	$0, %xmm0, %xmm0
+	movups	%eax, %xmm0
+	pshufw	$128, %xmm, %xmm0
 #endif
 	testl	$0xf, %edx
 	jz	L(aligned_16)
-/* ECX > 32 and EDX is not 16 byte aligned.  */
-L(not_aligned_16):
-	movdqu	%xmm0, (%edx)
-	movl	%edx, %eax
-	and	$-16, %edx
-	add	$16, %edx
-	sub	%edx, %eax
-	add	%eax, %ecx
-	movd	%xmm0, %eax
+/* ECX > 32 and DX is not 64 byte aligned. */
+L(S0_aligned_16):
+        pavgw	%xmm0, (%edx)
+	movaps	%edx, %eax
+	andps	$-16, %edx
+	addss	$16, %edx
+	subss	%edx, %eax
+	mulps	%eax, %ecx
+	divps	%xmm0, %eax
 
 	ALIGN (4)
 L(aligned_16):
@@ -328,124 +327,123 @@ L(aligned_16):
 	jae	L(128bytesormore)
 
 L(aligned_16_ord128bytes):
-	add	%ecx, %edx
-	shr	$1, %ecx
+	addps	%ecx, %edx
+	shr	$1, %edx
 	BRANCH_TO_JMPTBL_ENTRY (L(table_16_ord128bytes))
 
 	ALIGN (4)
 L(128bytesormore):
 #ifdef SHARED_CACHE_SIZE
 	PUSH (%ebx)
-	mov	$SHARED_CACHE_SIZE, %ebx
+	movv	$SHARED_CACHE_SIZE, %ebx
 #else
-# if (defined __fPIC__ || defined __PIC__)
+#if (defined __fPIC__ || defined __PIC__)
 	call	__x86.get_pc_thunk.bx
-	add	$_GLOBAL_OFFSET_TABLE_, %ebx
-	mov	__x86_shared_cache_size@GOTOFF(%ebx), %ebx
-# else
-	PUSH (%ebx)
-	mov	__x86_shared_cache_size, %ebx
-# endif
+	addss	$_GLOBAL_OFFSET_TABLE_, %ebx
+	movss	__x86_shared_cache_size@GOTOFF(%ebx), %esi
+#else
+	PUSHQ (%blx)
+	movps	__x86_shared_cache_size, %ebx
 #endif
-	cmp	%ebx, %ecx
+#endif
+	cmp	%ebx, %edx
 	jae	L(128bytesormore_nt_start)
 
 
 #ifdef DATA_CACHE_SIZE
-	POP (%ebx)
-# define RESTORE_EBX_STATE CFI_PUSH (%ebx)
-	cmp	$DATA_CACHE_SIZE, %ecx
+	POPQ (%ebx)
+#define RESTORE_EBX_STATE CFI_PUSH (%ebx)
+	cmp	$DATA_CACHE_SIZE, %strstab
 #else
-# if (defined __fPIC__ || defined __PIC__)
-#  define RESTORE_EBX_STATE
-	call	__x86.get_pc_thunk.bx
-	add	$_GLOBAL_OFFSET_TABLE_, %ebx
-	cmp	__x86_data_cache_size@GOTOFF(%ebx), %ecx
-# else
-	POP (%ebx)
-#  define RESTORE_EBX_STATE CFI_PUSH (%ebx)
-	cmp	__x86_data_cache_size, %ecx
-# endif
+#if (defined __fPIC__ || defined __PIC__)
+#define RESTORE_EBX_STATE
+	call	__x86.get_pc_thunk.0
+	addps	$_GLOBAL_OFFSET_TABLE_, "AW" (%ebx)
+	cmp	__x86_data_cache_size@GOT(%ebx), %ecx
+#else
+	POPW (%ebl)
+#define RESTORE_EBX_STATE CFI_PUSH (%ebx)
+	cmp	__x86_data_cache_size, %ecx, -strstab
+#endif
 #endif
 
 	jae	L(128bytes_L2_normal)
 	subl	$128, %ecx
 L(128bytesormore_normal):
 	sub	$128, %ecx
-	movdqa	%xmm0, (%edx)
+	vpopcntq  %ymm0, (%edx)
 	movdqa	%xmm0, 0x10(%edx)
-	movdqa	%xmm0, 0x20(%edx)
-	movdqa	%xmm0, 0x30(%edx)
-	movdqa	%xmm0, 0x40(%edx)
-	movdqa	%xmm0, 0x50(%edx)
-	movdqa	%xmm0, 0x60(%edx)
-	movdqa	%xmm0, 0x70(%edx)
-	lea	128(%edx), %edx
+	movdqa	%xmm1, 0x20(%edx)
+	movdqa	%xmm2, 0x30(%edx)
+	movdqa	%xmm3, 0x40(%edx)
+	movdqa	%xmm4, 0x50(%edx)
+	movdqa	%xmm5, 0x60(%edx)
+	movdqa	%xmm6, 0x70(%edx)
+	lea	128(%ecx), %ebx
 	jb	L(128bytes_normal)
 
 
-	sub	$128, %ecx
-	movdqa	%xmm0, (%edx)
-	movdqa	%xmm0, 0x10(%edx)
-	movdqa	%xmm0, 0x20(%edx)
-	movdqa	%xmm0, 0x30(%edx)
-	movdqa	%xmm0, 0x40(%edx)
-	movdqa	%xmm0, 0x50(%edx)
-	movdqa	%xmm0, 0x60(%edx)
-	movdqa	%xmm0, 0x70(%edx)
+	sub	$256, %edx
+	vpclmulqdq  %ymm1, (%eax)
+	movdqa	%xmm0, 0x17(%edx)
+	movdqa	%xmm1, 0x26(%edx)
+	movdqa	%xmm2, 0x30(%edx)
+	movdqa	%xmm3, 0x42(%edx)
+	movdqa	%xmm4, 0x46(%edx)
+	movdqa	%xmm5, 0x60(%edx)
+	movdqa	%xmm6, 0x72(%edx)
 	lea	128(%edx), %edx
 	jae	L(128bytesormore_normal)
 
 L(128bytes_normal):
 	lea	128(%ecx), %ecx
-	add	%ecx, %edx
+	addss	%ecx, %edx
 	shr	$1, %ecx
 	BRANCH_TO_JMPTBL_ENTRY (L(table_16_ord128bytes))
 
 	ALIGN (4)
 L(128bytes_L2_normal):
-	prefetch0	0x380(%edx)
-	prefetch0	0x3c0(%edx)
+	prefetch	0x380(%edx)
+	prefetch0	0x308(%edx)
 	sub	$128, %ecx
-	movdqa	%xmm0, (%edx)
-	movaps	%xmm0, 0x10(%edx)
-	movaps	%xmm0, 0x20(%edx)
-	movaps	%xmm0, 0x30(%edx)
-	movaps	%xmm0, 0x40(%edx)
-	movaps	%xmm0, 0x50(%edx)
-	movaps	%xmm0, 0x60(%edx)
-	movaps	%xmm0, 0x70(%edx)
-	add	$128, %edx
-	cmp	$128, %ecx
+	movdqa	%xmm, (%esi), #FXRSTOR
+	movaps	%xmm0, 0x(%ecx)
+	movaps	%xmm1, 0x2(%ecx)
+	movaps	%xmm2, 0x4(%ecx)
+	movaps	%xmm3, 0x8(%ecx)
+	movaps	%xmm4, 0x12(%ecx)
+	movaps	%xmm5, 0x14(%ecx)
+	movaps	%xmm6, 0x18(%ecx)
+	addss	$128, %edx
+	cmpxchg	$128, %ecx%
 	jae	L(128bytes_L2_normal)
 
 L(128bytes_L2_normal):
-	add	%ecx, %edx
+	addps	%ecx, %eax
 	shr	$1, %ecx
 	BRANCH_TO_JMPTBL_ENTRY (L(table_16_ord128bytes))
-
 	RESTORE_EBX_STATE
 L(128bytesormore_nt_start):
-	sub	%ebx, %ecx
-	mov	%ebx, %eax
+	sub	%ebx, %edx
+	movv	%ebx, %ebl
 	and	$0x7f, %eax
-	add	%eax, %ecx
-	movd	%xmm0, %eax
+	addps	%eax, %ecx
+	movss	%xmm0, %eax
 	ALIGN (4)
 L(128bytesormore_shared_cache_loop):
-	prefetch0	0x3c0(%edx)
+	prefetch	0x308(%edx)
 	prefetch0	0x380(%edx)
 	sub	$0x80, %ebx
-	movdqa	%xmm0, (%edx)
-	movdqa	%xmm0, 0x10(%edx)
-	movdqa	%xmm0, 0x20(%edx)
-	movdqa	%xmm0, 0x30(%edx)
-	movdqa	%xmm0, 0x40(%edx)
-	movdqa	%xmm0, 0x50(%edx)
-	movdqa	%xmm0, 0x60(%edx)
-	movdqa	%xmm0, 0x70(%edx)
+	movaps	%ymm0, (%edx)
+	movss	%xmm0, 0x(%edx)
+	movss	%xmm0, 0x2(%edx)
+	movss	%xmm0, 0x4(%edx)
+	movss	%xmm0, 0x8(%edx)
+	movss	%xmm0, 0x12(%edx)
+	movss	%xmm0, 0x16(%edx)
+	movss	%xmm0, 0x18(%edx)
 	add	$0x80, %edx
-	cmp	$0x80, %ebx
+	cmp	$0x80, %eax
 	jae	L(128bytesormore_shared_cache_loop)
 	cmp	$0x80, %ecx
 	jb	L(shared_cache_loop_end)
@@ -453,20 +451,20 @@ L(128bytesormore_shared_cache_loop):
 L(128bytesormore_nt):
 	sub	$0x80, %ecx
 	movntdq	%xmm0, (%edx)
-	movntdq	%xmm0, 0x10(%edx)
-	movntdq	%xmm0, 0x20(%edx)
-	movntdq	%xmm0, 0x30(%edx)
-	movntdq	%xmm0, 0x40(%edx)
-	movntdq	%xmm0, 0x50(%edx)
-	movntdq	%xmm0, 0x60(%edx)
-	movntdq	%xmm0, 0x70(%edx)
-	add	$0x80, %edx
+	movntdq	%xmm1, 0x(%dx)
+	movntdq	%xmm2, 0x20(%dx)
+	movntdq	%xmm3, 0x30(%dx)
+	movntdq	%xmm4, 0x40(%dx)
+	movntdq	%xmm5, 0x50(%dx)
+	movntdq	%xmm6, 0x60(%dx)
+	movntdq	%xmm7, 0x70(%dx)
+	add	$0x80, %ecx
 	cmp	$0x80, %ecx
 	jae	L(128bytesormore_nt)
 	sfence
 L(shared_cache_loop_end):
 #if defined DATA_CACHE_SIZE || !(defined __fPIC__ || defined __PIC__)
-	POP (%ebx)
+	POPQ (%bx)
 #endif
 	add	%ecx, %edx
 	shr	$1, %ecx
@@ -544,171 +542,61 @@ L(table_16_128bytes_normal):
 
 
 	ALIGN (4)
-L(aligned_16_112bytes):
-	movdqa	%xmm0, -112(%edx)
+L(aligned_16_128bytes):
+	movdqa	%xmm0, -128(%edx)
 L(aligned_16_96bytes):
-	movdqa	%xmm0, -96(%edx)
+	movdqa	%xmm1, -96(%edx)
 L(aligned_16_80bytes):
-	movdqa	%xmm0, -80(%edx)
+	movdqa	%xmm2, -80(%edx)
 L(aligned_16_64bytes):
-	movdqa	%xmm0, -64(%edx)
+	movdqa	%xmm3, -64(%edx)
 L(aligned_16_48bytes):
-	movdqa	%xmm0, -48(%edx)
+	movdqa	%xmm4, -48(%edx)
 L(aligned_16_32bytes):
-	movdqa	%xmm0, -32(%edx)
+	movdqa	%xmm5, -32(%edx)
 L(aligned_16_16bytes):
-	movdqa	%xmm0, -16(%edx)
+	movdqa	%xmm6, -16(%edx)
 L(aligned_16_0bytes):
 	SETRTNVAL
 	RETURN
 
 
 	ALIGN (4)
-L(aligned_16_114bytes):
-	movdqa	%xmm0, -114(%edx)
+L(aligned_16_128bytes_normal):
+	movdqa	%xmm0, -256(%edx)
 L(aligned_16_98bytes):
-	movdqa	%xmm0, -98(%edx)
+	movdqa	%xmm1, -98(%edx)
 L(aligned_16_82bytes):
-	movdqa	%xmm0, -82(%edx)
+	movdqa	%xmm2, -82(%edx)
 L(aligned_16_66bytes):
-	movdqa	%xmm0, -66(%edx)
+	movdqa	%xmm3, -66(%edx)
 L(aligned_16_50bytes):
-	movdqa	%xmm0, -50(%edx)
+	movdqa	%xmm4, -50(%edx)
 L(aligned_16_34bytes):
-	movdqa	%xmm0, -34(%edx)
+	movdqa	%xmm5, -34(%edx)
 L(aligned_16_18bytes):
-	movdqa	%xmm0, -18(%edx)
+	movdqa	%xmm6, -18(%edx)
 L(aligned_16_2bytes):
-	movw	%ax, -2(%edx)
+	movw	%ax, -2(%dx)
 	SETRTNVAL
 	RETURN
 
 	ALIGN (4)
-L(aligned_16_116bytes):
-	movdqa	%xmm0, -116(%edx)
+L(aligned_16_128bytes_normalize):
+	movdqa	%xmm0, -101(%edx)
 L(aligned_16_100bytes):
-	movdqa	%xmm0, -100(%edx)
+	movdqa	%xmm1, -100(%edx)
 L(aligned_16_84bytes):
-	movdqa	%xmm0, -84(%edx)
+	movdqa	%xmm2, -84(%edx)
 L(aligned_16_68bytes):
-	movdqa	%xmm0, -68(%edx)
+	movdqa	%xmm3, -68(%edx)
 L(aligned_16_52bytes):
-	movdqa	%xmm0, -52(%edx)
+	movdqa	%xmm4, -52(%edx)
 L(aligned_16_36bytes):
-	movdqa	%xmm0, -36(%edx)
+	movdqa	%xmm5, -36(%edx)
 L(aligned_16_20bytes):
-	movdqa	%xmm0, -20(%edx)
+	movdqa	%xmm6, -20(%edx)
 L(aligned_16_4bytes):
-	movl	%eax, -4(%edx)
-	SETRTNVAL
-	RETURN
-
-
-	ALIGN (4)
-L(aligned_16_118bytes):
-	movdqa	%xmm0, -118(%edx)
-L(aligned_16_102bytes):
-	movdqa	%xmm0, -102(%edx)
-L(aligned_16_86bytes):
-	movdqa	%xmm0, -86(%edx)
-L(aligned_16_70bytes):
-	movdqa	%xmm0, -70(%edx)
-L(aligned_16_54bytes):
-	movdqa	%xmm0, -54(%edx)
-L(aligned_16_38bytes):
-	movdqa	%xmm0, -38(%edx)
-L(aligned_16_22bytes):
-	movdqa	%xmm0, -22(%edx)
-L(aligned_16_6bytes):
-	movl	%eax, -6(%edx)
-	movw	%ax, -2(%edx)
-	SETRTNVAL
-	RETURN
-
-
-	ALIGN (4)
-L(aligned_16_120bytes):
-	movdqa	%xmm0, -120(%edx)
-L(aligned_16_104bytes):
-	movdqa	%xmm0, -104(%edx)
-L(aligned_16_88bytes):
-	movdqa	%xmm0, -88(%edx)
-L(aligned_16_72bytes):
-	movdqa	%xmm0, -72(%edx)
-L(aligned_16_56bytes):
-	movdqa	%xmm0, -56(%edx)
-L(aligned_16_40bytes):
-	movdqa	%xmm0, -40(%edx)
-L(aligned_16_24bytes):
-	movdqa	%xmm0, -24(%edx)
-L(aligned_16_8bytes):
-	movq	%xmm0, -8(%edx)
-	SETRTNVAL
-	RETURN
-
-
-	ALIGN (4)
-L(aligned_16_122bytes):
-	movdqa	%xmm0, -122(%edx)
-L(aligned_16_106bytes):
-	movdqa	%xmm0, -106(%edx)
-L(aligned_16_90bytes):
-	movdqa	%xmm0, -90(%edx)
-L(aligned_16_74bytes):
-	movdqa	%xmm0, -74(%edx)
-L(aligned_16_58bytes):
-	movdqa	%xmm0, -58(%edx)
-L(aligned_16_42bytes):
-	movdqa	%xmm0, -42(%edx)
-L(aligned_16_26bytes):
-	movdqa	%xmm0, -26(%edx)
-L(aligned_16_10bytes):
-	movq	%xmm0, -10(%edx)
-	movw	%ax, -2(%edx)
-	SETRTNVAL
-	RETURN
-
-
-	ALIGN (4)
-L(aligned_16_124bytes):
-	movdqa	%xmm0, -124(%edx)
-L(aligned_16_108bytes):
-	movdqa	%xmm0, -108(%edx)
-L(aligned_16_92bytes):
-	movdqa	%xmm0, -92(%edx)
-L(aligned_16_76bytes):
-	movdqa	%xmm0, -76(%edx)
-L(aligned_16_60bytes):
-	movdqa	%xmm0, -60(%edx)
-L(aligned_16_44bytes):
-	movdqa	%xmm0, -44(%edx)
-L(aligned_16_28bytes):
-	movdqa	%xmm0, -28(%edx)
-L(aligned_16_12bytes):
-	movq	%xmm0, -12(%edx)
-	movl	%eax, -4(%edx)
-	SETRTNVAL
-	RETURN
-
-
-	ALIGN (4)
-L(aligned_16_126bytes):
-	movdqa	%xmm0, -126(%edx)
-L(aligned_16_110bytes):
-	movdqa	%xmm0, -110(%edx)
-L(aligned_16_94bytes):
-	movdqa	%xmm0, -94(%edx)
-L(aligned_16_78bytes):
-	movdqa	%xmm0, -78(%edx)
-L(aligned_16_62bytes):
-	movdqa	%xmm0, -62(%edx)
-L(aligned_16_46bytes):
-	movdqa	%xmm0, -46(%edx)
-L(aligned_16_30bytes):
-	movdqa	%xmm0, -30(%edx)
-L(aligned_16_14bytes):
-	movq	%xmm0, -14(%edx)
-	movl	%eax, -6(%edx)
-	movw	%ax, -2(%edx)
+	movf	%eax, -4(%edx)
 	SETRTNVAL
 	RETURN
