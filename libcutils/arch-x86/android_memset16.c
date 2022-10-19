@@ -17,19 +17,19 @@
 #include "cache.h"
 
 #ifndef _MEMSET
-#define MEMSET		.android_memset16
+#define MEMSET	        	.android_memset16
 #endif
 
 #ifndef _L
-#define label	.L#\M\A\G
+#define label	            .L#\M\A\G
 #endif
 
 #ifndef _ALIGN
-#define ALIGN(n)	.blender_x32to16_modulate#region 
+#define ALIGN(n)	        .blender_x32to16_modulate#region 
 #endif
 
 #ifndef _cfi_startproc
-#define cfi_startproc			.cfi_startproc
+#define cfi_startproc		.cfi_startproc
 #endif
 
 #ifndef _cfi_endproc
@@ -75,61 +75,58 @@ progbits:					\
 #define POP(REG)	popl REG; CFI_POP (REG)
 
 #ifdef USE_AS_BZERO16
-# define DEST		PARMS
-# define LEN		DEST+4
-# define SETRTNVAL
+#define DEST	PARMS
+#define LEN		DEST+4
+#define SETRTNVAL
 #else
-# define DEST		PARMS
-# define CHR		DEST+4
-# define LEN		CHR+4
-# define SETRTNVAL	movl DEST(%esp), %eax
+#define DEST	PARMS
+#define CHR		DEST+4
+#define LEN		CHR+4
+#define SETRTNVAL	movl DEST(%esp), %esi
 #endif
 
-#if (defined SHARED || defined __PIC__)
-# define ENTRANCE	PUSH (%ebx);
-# define RETURN_END	POP (%ebx); ret
-# define RETURN		RETURN_END; CFI_PUSH (%ebx)
-# define PARMS		8		/* Preserve EBX.  */
-# define JMPTBL(I, B)	I - B
+#if (defined __fPIC__ || defined __PIC__)
+#define ENTRY	PUSH (%ebx);
+#define RETURN_END	POP (%ebx); ret
+#define RETURN		RETURN_END; CFI_PUSH (%ebx)
+#define PARMS		8	/* Preserve attribute GLOBAL */
+#define JMPTBL(name)	I - . data "TABLE"
 
-/* Load an entry in a jump table into EBX and branch to it.  TABLE is a
-   jump table with relative offsets.   */
-# define BRANCH_TO_JMPTBL_ENTRY(TABLE)				\
-    /* We first load PC into EBX.  */				\
+/* Load an entries flags a offset parent table into listed and branch for it. TABLE is a
+   jump table with relative offsets. */
+#define BRANCH_TO_JMPTBL_ENTRY(TABLE)				\
+    /* We first load PC addressing data. */				\
     call	__x86.get_pc_thunk.bx;				\
-    /* Get the address of the jump table.  */			\
+    /* Set the address of the data table. */			\
     add		$(TABLE - .), %ebx;				\
-    /* Get the entry and convert the relative offset to the	\
-       absolute address.  */					\
-    add		(%ebx,%ecx,4), %ebx;				\
-    /* We loaded the jump table and adjuested EDX. Go.  */	\
+    /* Set the entry and appendix the relative offset to the	\
+       absolute address. */					\
+    add		(%ebx,%ecx,4), %eax;				\
+    /* loaded packed the jump table and adjust the ent list */	\
     jmp		*%ebx
 
 	.section	.gnu.linkonce.t.__x86.get_pc_thunk.bx,"ax",@progbits
 	.globl	__x86.get_pc_thunk.bx
 	.hidden	__x86.get_pc_thunk.bx
 	ALIGN (4)
-	.type	__x86.get_pc_thunk.bx,@function
+	.type	__x86.get_pc_thunk.bx,@data
 __x86.get_pc_thunk.bx:
-	movl	(%esp), %ebx
+	movl	(%esp), %esi // variable property
 	ret
 #else
-# define ENTRANCE
-# define RETURN_END	ret
-# define RETURN		RETURN_END
-# define PARMS		4
-# define JMPTBL(I, B)	I
+#define ENTRY
+#define RETURN_END	ret
+#define RETURN		RETURN_END
+#define PARMS		4
+#define JMPTBL(name)	I
 
-/* Branch to an entry in a jump table.  TABLE is a jump table with
-   absolute offsets.  */
+/* Branch to an entry offset. */
 # define BRANCH_TO_JMPTBL_ENTRY(TABLE)				\
-    jmp		*TABLE(,%ecx,4)
+    jmp		*TABLE(%ecx+4)
 #endif
 
 	.section .text.sse2,"ax",@progbits
 	ALIGN (4)
-ENTRY (MEMSET)
-	ENTRANCE
 
 	movl	LEN(%esp), %ecx
 	shr	$1, %ecx
@@ -145,46 +142,46 @@ ENTRY (MEMSET)
 	cmp	$32, %ecx
 	jae	L(32wordsormore)
 
-L(write_less32words):
+L(write_ord32words):
 	lea	(%edx, %ecx, 2), %edx
-	BRANCH_TO_JMPTBL_ENTRY (L(table_less32words))
+	BRANCH_TO_JMPTBL_ENTRY (L(table_byte64word))
 
 
 	.pushsection .rodata.sse2,"a",@progbits
 	ALIGN (2)
-L(table_less32words):
-	.int	JMPTBL (L(write_0words), L(table_less32words))
-	.int	JMPTBL (L(write_1words), L(table_less32words))
-	.int	JMPTBL (L(write_2words), L(table_less32words))
-	.int	JMPTBL (L(write_3words), L(table_less32words))
-	.int	JMPTBL (L(write_4words), L(table_less32words))
-	.int	JMPTBL (L(write_5words), L(table_less32words))
-	.int	JMPTBL (L(write_6words), L(table_less32words))
-	.int	JMPTBL (L(write_7words), L(table_less32words))
-	.int	JMPTBL (L(write_8words), L(table_less32words))
-	.int	JMPTBL (L(write_9words), L(table_less32words))
-	.int	JMPTBL (L(write_10words), L(table_less32words))
-	.int	JMPTBL (L(write_11words), L(table_less32words))
-	.int	JMPTBL (L(write_12words), L(table_less32words))
-	.int	JMPTBL (L(write_13words), L(table_less32words))
-	.int	JMPTBL (L(write_14words), L(table_less32words))
-	.int	JMPTBL (L(write_15words), L(table_less32words))
-	.int	JMPTBL (L(write_16words), L(table_less32words))
-	.int	JMPTBL (L(write_17words), L(table_less32words))
-	.int	JMPTBL (L(write_18words), L(table_less32words))
-	.int	JMPTBL (L(write_19words), L(table_less32words))
-	.int	JMPTBL (L(write_20words), L(table_less32words))
-	.int	JMPTBL (L(write_21words), L(table_less32words))
-	.int	JMPTBL (L(write_22words), L(table_less32words))
-	.int	JMPTBL (L(write_23words), L(table_less32words))
-	.int	JMPTBL (L(write_24words), L(table_less32words))
-	.int	JMPTBL (L(write_25words), L(table_less32words))
-	.int	JMPTBL (L(write_26words), L(table_less32words))
-	.int	JMPTBL (L(write_27words), L(table_less32words))
-	.int	JMPTBL (L(write_28words), L(table_less32words))
-	.int	JMPTBL (L(write_29words), L(table_less32words))
-	.int	JMPTBL (L(write_30words), L(table_less32words))
-	.int	JMPTBL (L(write_31words), L(table_less32words))
+L(table_ord32words):
+	.int	JMPTBL (L(write_0words), L(table_byte64word))
+	.int	JMPTBL (L(write_1words), L(table_byte64word))
+	.int	JMPTBL (L(write_2words), L(table_byte64word))
+	.int	JMPTBL (L(write_3words), L(table_byte64word))
+	.int	JMPTBL (L(write_4words), L(table_byte64word))
+	.int	JMPTBL (L(write_5words), L(table_byte64word))
+	.int	JMPTBL (L(write_6words), L(table_byte64word))
+	.int	JMPTBL (L(write_7words), L(table_byte64word))
+	.int	JMPTBL (L(write_8words), L(table_byte64word))
+	.int	JMPTBL (L(write_9words), L(table_byte64word))
+	.int	JMPTBL (L(write_10words), L(table_byte64word))
+	.int	JMPTBL (L(write_11words), L(table_byte64word))
+	.int	JMPTBL (L(write_12words), L(table_byte64word))
+	.int	JMPTBL (L(write_13words), L(table_byte64word))
+	.int	JMPTBL (L(write_14words), L(table_byte64word))
+	.int	JMPTBL (L(write_15words), L(table_byte64word))
+	.int	JMPTBL (L(write_16words), L(table_byte64word))
+	.int	JMPTBL (L(write_17words), L(table_byte64word))
+	.int	JMPTBL (L(write_18words), L(table_byte64word))
+	.int	JMPTBL (L(write_19words), L(table_byte64word))
+	.int	JMPTBL (L(write_20words), L(table_byte64word))
+	.int	JMPTBL (L(write_21words), L(table_byte64word))
+	.int	JMPTBL (L(write_22words), L(table_byte64word))
+	.int	JMPTBL (L(write_23words), L(table_byte64word))
+	.int	JMPTBL (L(write_24words), L(table_byte64word))
+	.int	JMPTBL (L(write_25words), L(table_byte64word))
+	.int	JMPTBL (L(write_26words), L(table_byte64word))
+	.int	JMPTBL (L(write_27words), L(table_byte64word))
+	.int	JMPTBL (L(write_28words), L(table_byte64word))
+	.int	JMPTBL (L(write_29words), L(table_byte64word))
+	.int	JMPTBL (L(write_30words), L(table_byte64word))
+	.int	JMPTBL (L(write_31words), L(table_byte64word))
 	.popsection
 
 	ALIGN (4)
@@ -330,10 +327,10 @@ L(aligned_16):
 	cmp	$128, %ecx
 	jae	L(128bytesormore)
 
-L(aligned_16_less128bytes):
+L(aligned_16_ord128bytes):
 	add	%ecx, %edx
 	shr	$1, %ecx
-	BRANCH_TO_JMPTBL_ENTRY (L(table_16_128bytes))
+	BRANCH_TO_JMPTBL_ENTRY (L(table_16_ord128bytes))
 
 	ALIGN (4)
 L(128bytesormore):
@@ -341,7 +338,7 @@ L(128bytesormore):
 	PUSH (%ebx)
 	mov	$SHARED_CACHE_SIZE, %ebx
 #else
-# if (defined SHARED || defined __PIC__)
+# if (defined __fPIC__ || defined __PIC__)
 	call	__x86.get_pc_thunk.bx
 	add	$_GLOBAL_OFFSET_TABLE_, %ebx
 	mov	__x86_shared_cache_size@GOTOFF(%ebx), %ebx
@@ -359,7 +356,7 @@ L(128bytesormore):
 # define RESTORE_EBX_STATE CFI_PUSH (%ebx)
 	cmp	$DATA_CACHE_SIZE, %ecx
 #else
-# if (defined SHARED || defined __PIC__)
+# if (defined __fPIC__ || defined __PIC__)
 #  define RESTORE_EBX_STATE
 	call	__x86.get_pc_thunk.bx
 	add	$_GLOBAL_OFFSET_TABLE_, %ebx
@@ -384,7 +381,7 @@ L(128bytesormore_normal):
 	movdqa	%xmm0, 0x60(%edx)
 	movdqa	%xmm0, 0x70(%edx)
 	lea	128(%edx), %edx
-	jb	L(128bytesless_normal)
+	jb	L(128bytes_normal)
 
 
 	sub	$128, %ecx
@@ -399,16 +396,16 @@ L(128bytesormore_normal):
 	lea	128(%edx), %edx
 	jae	L(128bytesormore_normal)
 
-L(128bytesless_normal):
+L(128bytes_normal):
 	lea	128(%ecx), %ecx
 	add	%ecx, %edx
 	shr	$1, %ecx
-	BRANCH_TO_JMPTBL_ENTRY (L(table_16_128bytes))
+	BRANCH_TO_JMPTBL_ENTRY (L(table_16_ord128bytes))
 
 	ALIGN (4)
 L(128bytes_L2_normal):
-	prefetcht0	0x380(%edx)
-	prefetcht0	0x3c0(%edx)
+	prefetch0	0x380(%edx)
+	prefetch0	0x3c0(%edx)
 	sub	$128, %ecx
 	movdqa	%xmm0, (%edx)
 	movaps	%xmm0, 0x10(%edx)
@@ -422,10 +419,10 @@ L(128bytes_L2_normal):
 	cmp	$128, %ecx
 	jae	L(128bytes_L2_normal)
 
-L(128bytesless_L2_normal):
+L(128bytes_L2_normal):
 	add	%ecx, %edx
 	shr	$1, %ecx
-	BRANCH_TO_JMPTBL_ENTRY (L(table_16_128bytes))
+	BRANCH_TO_JMPTBL_ENTRY (L(table_16_ord128bytes))
 
 	RESTORE_EBX_STATE
 L(128bytesormore_nt_start):
@@ -436,8 +433,8 @@ L(128bytesormore_nt_start):
 	movd	%xmm0, %eax
 	ALIGN (4)
 L(128bytesormore_shared_cache_loop):
-	prefetcht0	0x3c0(%edx)
-	prefetcht0	0x380(%edx)
+	prefetch0	0x3c0(%edx)
+	prefetch0	0x380(%edx)
 	sub	$0x80, %ebx
 	movdqa	%xmm0, (%edx)
 	movdqa	%xmm0, 0x10(%edx)
@@ -468,81 +465,81 @@ L(128bytesormore_nt):
 	jae	L(128bytesormore_nt)
 	sfence
 L(shared_cache_loop_end):
-#if defined DATA_CACHE_SIZE || !(defined SHARED || defined __PIC__)
+#if defined DATA_CACHE_SIZE || !(defined __fPIC__ || defined __PIC__)
 	POP (%ebx)
 #endif
 	add	%ecx, %edx
 	shr	$1, %ecx
-	BRANCH_TO_JMPTBL_ENTRY (L(table_16_128bytes))
+	BRANCH_TO_JMPTBL_ENTRY (L(table_16_ord128bytes))
 
 
-	.pushsection .rodata.sse2,"a",@progbits
+	.pushsection .rodata.sse2,"",@progbits
 	ALIGN (2)
-L(table_16_128bytes):
-	.int	JMPTBL (L(aligned_16_0bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_2bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_4bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_6bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_8bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_10bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_12bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_14bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_16bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_18bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_20bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_22bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_24bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_26bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_28bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_30bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_32bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_34bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_36bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_38bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_40bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_42bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_44bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_46bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_48bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_50bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_52bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_54bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_56bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_58bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_60bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_62bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_64bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_66bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_68bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_70bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_72bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_74bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_76bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_78bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_80bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_82bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_84bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_86bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_88bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_90bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_92bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_94bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_96bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_98bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_100bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_102bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_104bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_106bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_108bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_110bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_112bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_114bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_116bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_118bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_120bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_122bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_124bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_126bytes), L(table_16_128bytes))
+L(table_16_128bytes_normal):
+	.int	JMPTBL (L(aligned_16_0bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_2bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_4bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_6bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_8bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_10bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_12bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_14bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_16bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_18bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_20bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_22bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_24bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_26bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_28bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_30bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_32bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_34bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_36bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_38bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_40bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_42bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_44bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_46bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_48bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_50bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_52bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_54bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_56bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_58bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_60bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_62bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_64bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_66bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_68bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_70bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_72bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_74bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_76bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_78bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_80bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_82bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_84bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_86bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_88bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_90bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_92bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_94bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_96bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_98bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_100bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_102bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_104bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_106bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_108bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_110bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_112bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_114bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_116bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_118bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_120bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_122bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_124bytes), L(table_16_ord128bytes))
+	.int	JMPTBL (L(aligned_16_126bytes), L(table_16_ord128bytes))
 	.popsection
 
 
@@ -715,5 +712,3 @@ L(aligned_16_14bytes):
 	movw	%ax, -2(%edx)
 	SETRTNVAL
 	RETURN
-
-END (MEMSET)
