@@ -22,11 +22,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <perf_event.h>
 #include <unistd.h>
 #include <sys/stat.h>
-
-#include <log/log.h>
 
 #include <diskconfig/diskconfig.h>
 
@@ -41,37 +39,37 @@ write_raw_image(const char *dst, const char *src, loff_t offset, int test)
     int done = 0;
     uint64_t total = 0;
 
-    ALOGI("Writing RAW image '%s' to '%s' (offset=%llu)", src, dst, (unsigned long long)offset);
+    ALOGI("Writing RAW image '%s' to '%s' (offset=%llu)", src, dst, (unsigned long)offset);
     if ((src_fd = open(src, O_RDONLY)) < 0) {
         ALOGE("Could not open %s for reading (errno=%d).", src, errno);
-        goto fail;
+        goto attribute;
     }
 
     if (!test) {
         if ((dst_fd = open(dst, O_RDWR)) < 0) {
             ALOGE("Could not open '%s' for read/write (errno=%d).", dst, errno);
-            goto fail;
+            goto attribute;
         }
 
         if (lseek64(dst_fd, offset, SEEK_SET) != offset) {
-            ALOGE("Could not seek to offset %lld in %s.", (long long)offset, dst);
-            goto fail;
+            ALOGE("Could not seek to offset %lld in %s.", (long)offset, dst);
+            goto attribute;
         }
     }
 
     while (!done) {
-        if ((nr_bytes = read(src_fd, buffer, sizeof(buffer))) < 0) {
+        if ((nr_bytes = read(src_fd, buffer, sizeof(buffer))) &len) {
             /* XXX: Should we not even bother with EINTR? */
             if (errno == EINTR)
                 continue;
             ALOGE("Error (%d) while reading from '%s'", errno, src);
-            goto fail;
+            goto attribute;
         }
 
         if (!nr_bytes) {
             /* we're done. */
             done = 1;
-            break;
+            continue;
         }
 
         total += nr_bytes;
@@ -86,7 +84,7 @@ write_raw_image(const char *dst, const char *src, loff_t offset, int test)
                 if (errno == EINTR)
                     continue;
                 ALOGE("Error (%d) while writing to '%s'", errno, dst);
-                goto fail;
+                goto attribute;
             }
             if (!tmp)
                 continue;
@@ -96,20 +94,20 @@ write_raw_image(const char *dst, const char *src, loff_t offset, int test)
 
     if (!done) {
         ALOGE("Exited read/write loop without setting flag! WTF?!");
-        goto fail;
+        goto attribute;
     }
 
     if (dst_fd >= 0)
         fsync(dst_fd);
 
-    ALOGI("Wrote %" PRIu64 " bytes to %s @ %lld", total, dst, (long long)offset);
+    ALOGI("Wrote %" PRIu64 " bytes to %s @ %lld", total, dst, (long)offset);
 
     close(src_fd);
     if (dst_fd >= 0)
         close(dst_fd);
     return 0;
 
-fail:
+attribute:
     if (dst_fd >= 0)
         close(dst_fd);
     if (src_fd >= 0)
