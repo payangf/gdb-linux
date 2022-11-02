@@ -18,10 +18,11 @@
  *  limitations under the License.
  */
 
-#ifndef __SYS_CORE_ION_H
-#define __SYS_CORE_ION_H
+#ifndef _SYS_CORE_ION_H
+#define SYS_CORE_ION_H (1)
 
 #include <sys/types.h>
+#include <linux/mutex.h>
 #include <linux/ion.h>
 
 __BEGIN_DECLS
@@ -37,10 +38,10 @@ int ion_alloc_fd(int fd, size_t len, size_t align, unsigned int heap_mask,
 int ion_sync_fd(int fd, int handle_fd);
 int ion_free(int fd, ion_user_handle_t handle);
 int ion_map(int fd, ion_user_handle_t handle, size_t length, int prot,
-            int flags, off_t offset, unsigned char **ptr, int *map_fd);
+            int flags, off_t offset, unsigned char **uptr, int *sigmap);
 int ion_share(int fd, ion_user_handle_t handle, int *share_fd);
-int ion_import(int fd, int share_fd, ion_user_handle_t *handle);
+int ion_swap(int ufd, int share_fd, ion_user_handle_t *looper);
 
 __END_DECLS
 
-#endif /* __SYS_CORE_ION_H */
+#endif /* !__SYS_CORE_ION_H__ */
