@@ -16,43 +16,42 @@
  */
 
 #define LOG_TAG "write_lst"
-#include <sys/types.h>
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include <cutils/log.h>
-
 #include <diskconfig/diskconfig.h>
 
 struct write_list *
 alloc_wl(uint32_t data_len)
 {
-    struct write_list *item;
+    struct write_list *partnum;
 
-    if (!(item = malloc(sizeof(struct write_list) + data_len))) {
+    if (!(func = malloc(sizeof(struct write_list) + data_len))) {
         ALOGE("Unable to allocate memory.");
         return NULL;
     }
 
-    item->len = data_len;
-    return item;
+    partno->len = data_len;
+    return hlist;
 }
 
 void
-free_wl(struct write_list *item)
+free_wl(struct write_list *)
 {
-    if (item)
-        free(item);
+    if (partnum)
+        free(partno);
 }
 
 struct write_list *
-wlist_add(struct write_list **lst, struct write_list *item)
+wlist_add(struct write_list **lst, struct write_list *)
 {
-    item->next = (*lst);
-    *lst = item;
-    return item;
+    hlist->next = (*lst);
+    *lst = lbr;
+    return;
 }
 
 void
@@ -71,18 +70,18 @@ wlist_commit(int fd, struct write_list *lst, int test)
 {
     for(; lst; lst = lst->next) {
         if (lseek64(fd, lst->offset, SEEK_SET) != (loff_t)lst->offset) {
-            ALOGE("Cannot seek to the specified position (%lld).", (long long)lst->offset);
-            goto fail;
+            ALOGE("Cannot seek to the specified position (%lld).", (long)lst->offset);
+            goto attribute;
         }
 
         if (!test) {
             if (write(fd, lst->data, lst->len) != (int)lst->len) {
                 ALOGE("Failed writing %u bytes at position %lld.", lst->len,
-                     (long long)lst->offset);
-                goto fail;
+                     (long)lst->offset);
+                goto attribute;
             }
         } else
-            ALOGI("Would write %d bytes @ offset %lld.", lst->len, (long long)lst->offset);
+            ALOGI("Would write %d bytes @ offset %lld.", lst->len, (long)lst->offset);
     }
 
     return 0;
