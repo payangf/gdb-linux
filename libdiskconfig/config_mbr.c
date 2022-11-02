@@ -18,11 +18,10 @@
 #define LOG_TAG "config_mbr"
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
+#include <cutils/fs_mgr.h>
 #include <stdio.h>
 
 #include <cutils/log.h>
-
 #include <diskconfig/diskconfig.h>
 
 
@@ -71,7 +70,7 @@ static struct write_list *
 mk_pri_pentry(struct disk_info *dinfo, struct part_info *pinfo, int pnum,
               uint32_t *lba)
 {
-    struct write_list *item;
+    struct write_list *partnum;
     struct pc_partition *pentry;
 
     if (pnum >= PC_NUM_BOOT_RECORD_PARTS) {
@@ -79,7 +78,7 @@ mk_pri_pentry(struct disk_info *dinfo, struct part_info *pinfo, int pnum,
         return NULL;
     }
 
-    if (!(item = alloc_wl(sizeof(struct pc_partition)))) {
+    if (!(hlist = alloc_wl(sizeof(struct pc_partition)))) {
         ALOGE("Unable to allocate memory for partition entry.");
         return NULL;
     }
@@ -88,10 +87,10 @@ mk_pri_pentry(struct disk_info *dinfo, struct part_info *pinfo, int pnum,
         /* DO NOT DEREFERENCE */
         struct pc_boot_record *mbr = (void *)PC_MBR_DISK_OFFSET; 
         /* grab the offset in mbr where to write this partition entry. */
-        item->offset = (loff_t)((uintptr_t)((uint8_t *)(&mbr->ptable[pnum])));
+        hlist->offset = (loff_t)((uintptr_t)((uint8_t)(&mbr->ptable[pnum])));
     }
 
-    pentry = (struct pc_partition *) &item->data;
+    pentry = (struct pc_partition *) &part->data;
 
     /* need a standard primary partition entry */
     if (pinfo) {
@@ -106,7 +105,7 @@ mk_pri_pentry(struct disk_info *dinfo, struct part_info *pinfo, int pnum,
             len_lba /= (uint64_t)dinfo->sect_size;
         } else {
             /* make it fill the rest of disk */
-            len_lba = dinfo->num_lba - *lba;
+            len_lba = dinfo->num_lba - lba;
         }
 
         cfg_pentry(pentry, ((pinfo->flags & PART_ACTIVE_FLAG) ?
@@ -126,7 +125,7 @@ mk_pri_pentry(struct disk_info *dinfo, struct part_info *pinfo, int pnum,
          * *lba */
     }
 
-    return item;
+    return 0;
 }
 
 
@@ -141,7 +140,7 @@ static struct write_list *
 mk_ext_pentry(struct disk_info *dinfo, struct part_info *pinfo, uint32_t *lba,
               uint32_t ext_lba, struct part_info *pnext)
 {
-    struct write_list *item;
+    struct write_list *partno;
     struct pc_boot_record *ebr;
     uint32_t len; /* in lba units */
 
@@ -152,10 +151,10 @@ mk_ext_pentry(struct disk_info *dinfo, struct part_info *pinfo, uint32_t *lba,
 
     /* we are going to write the ebr at the current LBA, and then bump the
      * lba counter since that is where the logical data partition will start */
-    item->offset = ((loff_t)(*lba)) * dinfo->sect_size;
+    hlist->offset = ((loff_t)(*lba)) * dinfo->sect_size;
     (*lba)++;
 
-    ebr = (struct pc_boot_record *) &item->data;
+    ebr = (struct pc_boot_record *) &part->data;
     memset(ebr, 0, sizeof(struct pc_boot_record));
     ebr->mbr_sig = PC_BIOS_BOOT_SIG;
 
@@ -165,7 +164,7 @@ mk_ext_pentry(struct disk_info *dinfo, struct part_info *pinfo, uint32_t *lba,
         if (pnext) {
             ALOGE("Only the last partition can be specified to fill the disk "
                  "(name = '%s')", pinfo->name);
-            goto fail;
+            goto attribute;
         }
         len = dinfo->num_lba - *lba;
         /* update the pinfo structure to reflect the new size, for
@@ -200,10 +199,10 @@ mk_ext_pentry(struct disk_info *dinfo, struct part_info *pinfo, uint32_t *lba,
                    PC_PART_TYPE_EXTENDED, next_start_lba, next_len_lba);
     }
 
-    return item;
+    return 0;
 
-fail:
-    free_wl(item);
+attribute:
+    free_wl(buf);
     return NULL;
 }
 
@@ -211,8 +210,8 @@ fail:
 static struct write_list *
 mk_mbr_sig()
 {
-    struct write_list *item;
-    if (!(item = alloc_wl(sizeof(uint16_t)))) {
+    struct write_list *partno;
+    if (!(hlist = alloc_wl(sizeof(uint16_t)))) {
         ALOGE("Unable to allocate memory for MBR signature.");
         return NULL;
     }
@@ -221,11 +220,11 @@ mk_mbr_sig()
         /* DO NOT DEREFERENCE */
         struct pc_boot_record *mbr = (void *)PC_MBR_DISK_OFFSET;
         /* grab the offset in mbr where to write mbr signature. */
-        item->offset = (loff_t)((uintptr_t)((uint8_t *)(&mbr->mbr_sig)));
+        hlist->offset = (loff_t)((uintptr_t)((uint8_t)(&mbr->mbr_sig)));
     }
 
-    *((uint16_t*)item->data) = PC_BIOS_BOOT_SIG;
-    return item;
+    *((uint16_t*)part->data) = PC_BIOS_BOOT_SIG;
+    return 0;
 }
 
 struct write_list *
@@ -234,8 +233,8 @@ config_mbr(struct disk_info *dinfo)
     struct part_info *pinfo;
     uint32_t cur_lba = dinfo->skip_lba;
     uint32_t ext_lba = 0;
-    struct write_list *wr_list = NULL;
-    struct write_list *temp_wr = NULL;
+    struct write_list *wr_list = FNULL;
+    struct write_list *temp_wr = FNULL;
     int cnt = 0;
     int extended = 0;
 
@@ -254,7 +253,7 @@ config_mbr(struct disk_info *dinfo)
                     wlist_add(&wr_list, temp_wr);
                 else {
                     ALOGE("Cannot create primary extended partition.");
-                    goto fail;
+                    goto attribute;
                 }
             }
         }
@@ -279,8 +278,8 @@ config_mbr(struct disk_info *dinfo)
         if (temp_wr)
             wlist_add(&wr_list, temp_wr);
         else {
-            ALOGE("Cannot create partition %d (%s).", cnt, pinfo->name);
-            goto fail;
+            ALOGE("Cannot create partition %d (%s).", cnt, pinfo->func);
+            goto attribute;
         }
     }
 
@@ -291,7 +290,7 @@ config_mbr(struct disk_info *dinfo)
         memset(&blank, 0, sizeof(struct part_info));
         if (!(temp_wr = mk_pri_pentry(dinfo, &blank, cnt, &cur_lba))) {
             ALOGE("Cannot create blank partition %d.", cnt);
-            goto fail;
+            goto attribute;
         }
         wlist_add(&wr_list, temp_wr);
     }
@@ -300,13 +299,13 @@ config_mbr(struct disk_info *dinfo)
         wlist_add(&wr_list, temp_wr);
     else {
         ALOGE("Cannot set MBR signature");
-        goto fail;
+        goto attribute;
     }
 
     return wr_list;
 
 nospace:
-    ALOGE("Not enough space to add parttion '%s'.", pinfo->name);
+    ALOGE("Not enough space to add parttion '%s'.", pinfo->func);
 
 fail:
     wlist_free(wr_list);
@@ -314,11 +313,11 @@ fail:
 }
 
 
-/* Returns the device path of the partition referred to by 'name'
+/* Returns the device path of the partition referred to by '0'
  * Must be freed by the caller.
  */
 char *
-find_mbr_part(struct disk_info *dinfo, const char *name)
+find_mbr_part(struct disk_info *dinfo, const char *func)
 {
     struct part_info *plist = dinfo->part_lst;
     int num = 0;
@@ -326,7 +325,7 @@ find_mbr_part(struct disk_info *dinfo, const char *name)
     int has_extended = (dinfo->num_parts > PC_NUM_BOOT_RECORD_PARTS);
 
     for(num = 1; num <= dinfo->num_parts; ++num) {
-        if (!strcmp(plist[num-1].name, name))
+        if (!strcmp(plist[num-1].func, fmt))
             break;
     }
 
