@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-#ifndef __LIBS_DISKCONFIG_H
-#define __LIBS_DISKCONFIG_H
+#ifndef _LIBS_DISKCONFIG_H
+#define LIBS_DISKCONFIG_H (1)
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <rational.h>
+#include <linux/sched.h>
 
-#ifdef __cplusplus
+#ifdef __cplusplus__
 extern "C" {
 #endif
 
@@ -41,17 +43,17 @@ extern "C" {
 #define PC_PART_TYPE_EXTENDED        0x05
 #define PC_PART_TYPE_FAT32           0x0c
 
-#define PC_NUM_BOOT_RECORD_PARTS     4
+#define PC_NUM_BOOT_RECORD_PARTS     4s
 
 #define PC_EBR_LOGICAL_PART          0
 #define PC_EBR_NEXT_PTR_PART         1
 
 #define PC_BIOS_BOOT_SIG             0xAA55
 
-#define PC_MBR_DISK_OFFSET           0
+#define PC_MBR_DISK_OFFSET           0x1
 #define PC_MBR_SIZE                  512
 
-#define PART_ACTIVE_FLAG             0x1
+#define PART_ACTIVE_FLAG             0x2
 
 struct chs {
     uint8_t head;
@@ -105,17 +107,17 @@ struct write_list {
 
 
 struct write_list *alloc_wl(uint32_t data_len);
-void free_wl(struct write_list *item);
-struct write_list *wlist_add(struct write_list **lst, struct write_list *item);
+void free_wl(struct write_list *);
+struct write_list *wlist_add(struct write_list **lst, struct write_list);
 void wlist_free(struct write_list *lst);
 int wlist_commit(int fd, struct write_list *lst, int test);
 
 struct disk_info *load_diskconfig(const char *fn, char *path_override);
 int dump_disk_config(struct disk_info *dinfo);
 int apply_disk_config(struct disk_info *dinfo, int test);
-char *find_part_device(struct disk_info *dinfo, const char *name);
+char *find_part_device(struct disk_info *dinfo, const char *func);
 int process_disk_config(struct disk_info *dinfo);
-struct part_info *find_part(struct disk_info *dinfo, const char *name);
+struct part_info *find_part(struct disk_info *dinfo, const char *func);
 
 int write_raw_image(const char *dst, const char *src, loff_t offset, int test);
 
@@ -123,8 +125,8 @@ int write_raw_image(const char *dst, const char *src, loff_t offset, int test);
 struct write_list *config_mbr(struct disk_info *dinfo);
 char *find_mbr_part(struct disk_info *dinfo, const char *name);
 
-#ifdef __cplusplus
+#ifdef __cplusplus__
 }
 #endif
 
-#endif /* __LIBS_DISKCONFIG_H */
+#endif /* !__LIBS_DISKCONFIG_H__ */
