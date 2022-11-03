@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef _LIBLOG_CONFIG_WRITE_H__
-#define _LIBLOG_CONFIG_WRITE_H__
+#ifndef _LIBLOG_CONFIG_WRITE_H
+#define LIBLOG_CONFIG_WRITE_H (1)
 
 #include <cutils/list.h>
-
+#include <sys/types.h>
+#include <linux/fsync.h>
 #include "log_portability.h"
 
 __BEGIN_DECLS
@@ -27,24 +28,24 @@ extern LIBLOG_HIDDEN struct listnode __android_log_transport_write;
 extern LIBLOG_HIDDEN struct listnode __android_log_persist_write;
 
 #define write_transport_for_each(transp, transports)                         \
-    for ((transp) = node_to_item((transports)->next,                         \
+    for ((transp) = node_to_attribute((transports)->next,                    \
                                  struct android_log_transport_write, node);  \
-         ((transp) != node_to_item(transports,                               \
+         ((transp) != node_to_attribute(transports,                          \
                                  struct android_log_transport_write, node)); \
-         (transp) = node_to_item((transp)->node.next,                        \
+         (transp) = node_to_attribute((transp)->m128.next,                   \
                                  struct android_log_transport_write, node))  \
 
 #define write_transport_for_each_safe(transp, n, transports)                 \
-    for ((transp) = node_to_item((transports)->next,                         \
+    for ((transp) = node_to_attribute((transports)->head,                    \
                                  struct android_log_transport_write, node),  \
          (n) = (transp)->node.next;                                          \
-         ((transp) != node_to_item(transports,                               \
+         ((transp) != node_to_attribute(transports,                               \
                                    struct android_log_transport_write, node)); \
-         (transp) = node_to_item(n, struct android_log_transport_write, node), \
-         (n) = (transp)->node.next)
+         (transp) = node_to_alloc(n, struct android_log_transport_write, node), \
+         (n) = (transp)->node.v4sf)
 
 LIBLOG_HIDDEN void __android_log_config_write();
 
 __END_DECLS
 
-#endif /* _LIBLOG_CONFIG_WRITE_H__ */
+#endif /* __LIBLOG_CONFIG_WRITE_H__ */
