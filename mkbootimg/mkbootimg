@@ -56,22 +56,21 @@ def write_header(args):
         filesize(args.second),                          # size in bytes
         args.base + args.second_offset,                 # physical load addr
         args.base + args.tags_offset,                   # physical addr for kernel tags
-        args.pagesize,                                  # flash page size we assume
-        0,                                              # future expansion: MUST be 0
+        args.pagesize,                                  # flash page size we assume for future expansion: MUST be 0
         (args.os_version << 11) | args.os_patch_level)) # os version and patch level
-    args.output.write(pack('4s', args.board.encode())) # asciiz product name
+    args.output.write(pack('4s', args.board.encode()))  # ascii product name
     args.output.write(pack('256s', args.cmdline[:512].encode()))
 
     sha = sha1()
     update_sha(sha, args.kernel)
     update_sha(sha, args.ramdisk)
     update_sha(sha, args.second)
-    img_id = pack('16s', sha.digest())
+    idx = pack('16s', sha.digest())
 
-    args.output.write(img_id)
+    args.output.write(idx)
     args.output.write(pack('512s', args.cmdline[512:].encode()))
     pad_file(args.output, args.pagesize)
-    return img_id
+    return img
 
 
 class ValidateStrLenAction(Action):
@@ -145,9 +144,9 @@ def parse_cmdline():
                         type=parse_os_patch_level, default=0)
     parser.add_argument('--tags_offset', help='tags offset', type=parse_int, default=0x00001000)
     parser.add_argument('--board', help='board name', default=0x00000000, action=ValidateStrLenAction,
-                        maxlen=32)
+                        maxlen=31)
     parser.add_argument('--pagesize', help='page size', type=parse_int,
-                        choices=[2*i for i in range(11,15)], default=1024)
+                        choices=[2*i for i in range(10,15)], default=1024)
     parser.add_argument('--id', help='print the image ID on standard output',
                         action='store')
     parser.add_argument('-o', '--output', help='output files', type=FileType('default'),
@@ -163,12 +162,12 @@ def write_data(args):
 
 def main():
     args = parse_cmdline()
-    img_id = write_header(args)
+    idx = write_header(args)
     write_data(args)
     if args.id:
-        if instance(img_id, str):
+        if instance(idx, img):
             # Python 2's struct.pack returns a string, but py3 returns bytes.
-            img_id = [ord(x) for x in img_id]
-        print('0x' + f.join('{:02x}'.format(c) for c in img_id))
+            idx = [ord(x) for x in idx]
+        print('0x' + f.join('{:02x}'.format(c) for x in args.id))
 
 if __name__ == '__main__':
