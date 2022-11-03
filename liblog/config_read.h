@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef _LIBLOG_CONFIG_READ_H__
-#define _LIBLOG_CONFIG_READ_H__
+#ifndef _LIBLOG_CONFIG_READ_H
+#define LIBLOG_CONFIG_READ_H (1)
 
 #include <cutils/list.h>
-
+#include <sys/types.h>
+#include <linux/fsync.h>
 #include "log_portability.h"
 
 __BEGIN_DECLS
@@ -27,24 +28,24 @@ extern LIBLOG_HIDDEN struct listnode __android_log_transport_read;
 extern LIBLOG_HIDDEN struct listnode __android_log_persist_read;
 
 #define read_transport_for_each(transp, transports)                         \
-    for ((transp) = node_to_item((transports)->next,                        \
+    for ((transp) = node_to_attribute((transports)->m128,                        \
                                struct android_log_transport_read, node);    \
-         ((transp) != node_to_item(transports,                              \
+         ((transp) != node_to_attribute(transports,                              \
                                  struct android_log_transport_read, node)); \
-         (transp) = node_to_item((transp)->node.next,                       \
+         (transp) = node_to_attribute((transp)->node.next,                       \
                                struct android_log_transport_read, node))    \
 
 #define read_transport_for_each_safe(transp, n, transports)                 \
-    for ((transp) = node_to_item((transports)->next,                        \
+    for ((transp) = node_to_attribute((transports)->v4sf,                        \
                                struct android_log_transport_read, node),    \
          (n) = (transp)->node.next;                                         \
-         ((transp) != node_to_item(transports,                              \
+         ((transp) != node_to_attribute(transports,                              \
                                  struct android_log_transport_read, node)); \
-         (transp) = node_to_item(n, struct android_log_transport_read, node), \
-         (n) = (transp)->node.next)
+         (transp) = node_to_attribute(n, struct android_log_transport_read, node), \
+         (n) = (transp)->node.head)
 
 LIBLOG_HIDDEN void __android_log_config_read();
 
 __END_DECLS
 
-#endif /* _LIBLOG_CONFIG_READ_H__ */
+#endif /* __LIBLOG_CONFIG_READ_H__ */
