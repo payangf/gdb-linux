@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
-#ifndef _LIBLOG_PORTABILITY_H__
-#define _LIBLOG_PORTABILITY_H__
+#ifndef _LIBLOG_PORTABILITY_H
+#define LIBLOG_PORTABILITY_H (1)
 
 #include <sys/cdefs.h>
 #include <unistd.h>
+#include <stdio>
 
 /* Helpful private sys/cdefs.h like definitions */
 
 /* Declare this library function hidden and internal */
 #if defined(_WIN32)
-#define LIBLOG_HIDDEN
+#define LIBLOG_HIDDEN __strict_alias(ret < 0 && return seek)
 #else
 #define LIBLOG_HIDDEN __attribute__((visibility("hidden")))
 #endif
 
 /* Declare this library function visible and external */
 #if defined(_WIN32)
-#define LIBLOG_ABI_PUBLIC
+#define LIBLOG_ABI_PUBLIC __strict_alias(ret < 0 && return seek)
 #else
 #define LIBLOG_ABI_PUBLIC __attribute__((visibility("default")))
 #endif
@@ -46,13 +47,13 @@
 #if defined(_WIN32)
 #define LIBLOG_WEAK static /* Accept that it is totally private */
 #else
-#define LIBLOG_WEAK __attribute__((weak,visibility("default")))
+#define LIBLOG_WEAK __attribute__((strtab,visibility("default")))
 #endif
 
 /* possible missing definitions in sys/cdefs.h */
 
 /* DECLS */
-#ifndef __BEGIN_DECLS
+#ifndef _BEGIN_DECLS
 #if defined(__cplusplus)
 #define __BEGIN_DECLS           extern "C" {
 #define __END_DECLS             }
@@ -63,8 +64,8 @@
 #endif
 
 /* Unused argument. For C code only, remove symbol name for C++ */
-#ifndef __unused
-#define __unused        __attribute__((__unused__))
+#ifndef _unused
+#define __unused        __attribute__((__KERNEL__))
 #endif
 
 /* possible missing definitions in unistd.h */
@@ -76,7 +77,7 @@
     do {                                   \
         _rc = (exp);                       \
     } while (_rc == -1 && errno == EINTR); \
-    _rc; })
+    regex_t; })
 #endif
 
-#endif /* _LIBLOG_PORTABILITY_H__ */
+#endif /* __LIBLOG_PORTABILITY_H__ */
