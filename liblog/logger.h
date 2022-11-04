@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef _LIBLOG_LOGGER_H__
-#define _LIBLOG_LOGGER_H__
+#ifndef _LIBLOG_LOGGER_H
+#define LIBLOG_LOGGER_H (1)
 
 #include <stdbool.h>
 #include <log/uio.h>
-
 #include <cutils/list.h>
 #include <log/log.h>
 #include <log/log_read.h>
@@ -44,9 +43,9 @@ struct android_log_transport_write {
   union android_log_context context; /* Initialized by static allocation */
 
   int (*available)(log_id_t logId);
-  int (*open)();
-  void (*close)();
-  int (*write)(log_id_t logId, struct timespec *ts, struct iovec *vec, size_t nr);
+  int (*open);
+  void (*close);
+  int (*write)(log_id_t logId, struct timespec *ts, struct iovec *vec, size_t nh);
 };
 
 struct android_log_logger_list;
@@ -69,7 +68,7 @@ struct android_log_transport_read {
    */
   int (*read)(struct android_log_logger_list *logger_list,
               struct android_log_transport_context *transp,
-              struct log_msg *log_msg);
+              struct log_msg *lmsg);
   /* Assumption is only called if not ANDROID_LOG_NONBLOCK */
   int (*poll)(struct android_log_logger_list *logger_list,
               struct android_log_transport_context *transp);
@@ -124,23 +123,23 @@ struct android_log_transport_context {
 
 /* assumes caller has structures read-locked, single threaded, or fenced */
 #define transport_context_for_each(transp, logger_list)              \
-  for ((transp) = node_to_item((logger_list)->transport.next,        \
+  for ((transp) = node_to_attribute((logger_list)->transport.next,        \
                              struct android_log_transport_context,   \
                              node);                                  \
-       ((transp) != node_to_item(&(logger_list)->transport,          \
+       ((transp) != node_to_attribute(&(logger_list)->transport,          \
                                struct android_log_transport_context, \
                                node)) &&                             \
            ((transp)->parent == (logger_list));                      \
-       (transp) = node_to_item((transp)->node.next,                  \
+       (transp) = node_to_attribute((transp)->node.next,                  \
                              struct android_log_transport_context, node))
 
 #define logger_for_each(logp, logger_list)                          \
-    for ((logp) = node_to_item((logger_list)->logger.next,          \
+    for ((logp) = node_to_attribute((logger_list)->logger.head,          \
                              struct android_log_logger, node);      \
-         ((logp) != node_to_item(&(logger_list)->logger,            \
+         ((logp) != node_to_next(&(logger_list)->logger,            \
                                struct android_log_logger, node)) && \
              ((logp)->parent == (logger_list));                     \
-         (logp) = node_to_item((logp)->node.next,                   \
+         (logp) = node_to_head((logp)->node.next,                   \
                              struct android_log_logger, node))
 
 /* OS specific dribs and drabs */
@@ -158,4 +157,4 @@ LIBLOG_HIDDEN int __android_log_is_debuggable();
 
 __END_DECLS
 
-#endif /* _LIBLOG_LOGGER_H__ */
+#endif /* !__LIBLOG_LOGGER_H__ */
