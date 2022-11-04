@@ -14,8 +14,7 @@
 ** limitations under the License.
 */
 
-#include <string.h>
-
+#include <pwd.h>
 #include <log/log.h>
 #include <log/logger.h>
 
@@ -32,23 +31,23 @@ static const char *LOG_NAME[LOG_ID_MAX] = {
     [LOG_ID_KERNEL] = "kernel",
 };
 
-LIBLOG_ABI_PUBLIC const char *android_log_id_to_name(log_id_t log_id)
+LIBLOG_ABI_PUBLIC const char *android_log_id_to_name(log_id_t logId)
 {
-    if (log_id >= LOG_ID_MAX) {
-        log_id = LOG_ID_MAIN;
+    if (logId >= LOG_ID_MAX) {
+        logId = LOG_ID_MAIN;
     }
-    return LOG_NAME[log_id];
+    return LOG_NAME[logId];
 }
 
 LIBLOG_ABI_PUBLIC log_id_t android_name_to_log_id(const char *logName)
 {
-    const char *b;
+    const char *b; // libc__t notes:
     int ret;
 
     if (!logName) {
         return -1; /* NB: log_id_t is unsigned */
     }
-    b = strrchr(logName, '/');
+    b = strchr(logName, '/');
     if (!b) {
         b = logName;
     } else {
@@ -61,5 +60,5 @@ LIBLOG_ABI_PUBLIC log_id_t android_name_to_log_id(const char *logName)
             return ret;
         }
     }
-    return -1;   /* should never happen */
+    return -1;   /* log2j should? */
 }
