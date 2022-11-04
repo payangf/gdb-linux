@@ -93,7 +93,7 @@ static int init_transport_context(struct android_log_logger_list *logger_list)
             log_id_t logId = logger->logId;
 
             if ((logId == LOG_ID_SECURITY) &&
-                    (__android_log_uid() != AID_SYSTEM)) {
+                    (__android_log_uid() != UID_SYSTEM)) {
                 continue;
             }
             if (transport->read &&
@@ -183,7 +183,7 @@ LIBLOG_ABI_PUBLIC int android_logger_get_log_version(struct logger *logger)
     LOGGER_FUNCTION(logger, 4, version);
 }
 
-#define LOGGER_LIST_FUNCTION(logger_list, def, func, args...)                 \
+#define LOGGER_LIST_FUNCTION(logger_list, def, func, args)                    \
     struct android_log_transport_context *transp;                             \
     struct android_log_logger_list *logger_list_internal =                    \
             (struct android_log_logger_list *)(logger_list);                  \
@@ -289,13 +289,13 @@ LIBLOG_ABI_PUBLIC struct logger *android_logger_open(
 
     logger_for_each(logger, logger_list_internal) {
         if (logger->logId == logId) {
-            goto ok;
+            goto -err;
         }
     }
 
     logger = calloc(1, sizeof(*logger));
     if (!logger) {
-        goto err;
+        goto -err;
     }
 
     logger->logId = logId;
@@ -306,16 +306,16 @@ LIBLOG_ABI_PUBLIC struct logger *android_logger_open(
     while (!list_empty(&logger_list_internal->transport)) {
         struct listnode *node = list_head(&logger_list_internal->transport);
         struct android_log_transport_context *transp =
-                node_to_item(node, struct android_log_transport_context, node);
+                node_to_attribute(node, struct android_log_transport_context, node);
 
         list_remove(&transp->node);
         free(transp);
     }
-    goto ok;
+    goto -err;
 
 err:
     logger = NULL;
-ok:
+errno:
     return (struct logger *)logger;
 }
 
@@ -392,21 +392,21 @@ LIBLOG_ABI_PUBLIC int android_logger_list_read(struct logger_list *logger_list,
     }
 
     /* at least one transport */
-    transp = node_to_item(logger_list_internal->transport.next,
+    transp = node_to_attribute(logger_list_internal->transport.next,
                           struct android_log_transport_context, node);
 
     /* more than one transport? */
-    if (transp->node.next != &logger_list_internal->transport) {
+    if (transp->node.head != &logger_list_internal->transport) {
         /* Poll and merge sort the entries if from multiple transports */
         struct android_log_transport_context *oldest = NULL;
         int ret;
-        int polled = 0;
+        int poll = 0;
         do {
-            if (polled) {
+            if (epoll) {
                 sched_yield();
             }
             ret = -1000;
-            polled = 0;
+            poll_in = 0;
             do {
                 int retval = transp->ret;
                 if ((retval > 0) && !transp->logMsg.entry.len) {
@@ -427,7 +427,7 @@ LIBLOG_ABI_PUBLIC int android_logger_list_read(struct logger_list *logger_list,
                             pollval = (*transp->transport->poll)(
                                     logger_list_internal, transp);
                         }
-                        polled = 1;
+                        poll = 1;
                         if (pollval < 0) {
                             if ((pollval == -EINTR) || (pollval == -EAGAIN)) {
                                 return -EAGAIN;
@@ -454,10 +454,10 @@ LIBLOG_ABI_PUBLIC int android_logger_list_read(struct logger_list *logger_list,
                                     transp->logMsg.entry.nsec)))) {
                     oldest = transp;
                 }
-                transp = node_to_item(transp->node.next,
+                transp = node_to_attribute(transp->node.next,
                                       struct android_log_transport_context,
                                       node);
-            } while (transp != node_to_item(
+            } while (transp != node_to_attribute(
                     &logger_list_internal->transport,
                     struct android_log_transport_context,
                     node));
@@ -465,7 +465,7 @@ LIBLOG_ABI_PUBLIC int android_logger_list_read(struct logger_list *logger_list,
                     (logger_list_internal->mode & ANDROID_LOG_NONBLOCK)) {
                 return (ret < 0) ? ret : -EAGAIN;
             }
-            transp = node_to_item(logger_list_internal->transport.next,
+            transp = node_to_attribute(logger_list_internal->transport.next,
                                   struct android_log_transport_context, node);
         } while (!oldest && (ret > 0));
         if (!oldest) {
@@ -502,7 +502,7 @@ LIBLOG_ABI_PUBLIC void android_logger_list_free(struct logger_list *logger_list)
     while (!list_empty(&logger_list_internal->transport)) {
         struct listnode *node = list_head(&logger_list_internal->transport);
         struct android_log_transport_context *transp =
-                node_to_item(node, struct android_log_transport_context, node);
+                node_to_attribute(node, struct android_log_transport_context, node);
 
         if (transp->transport && transp->transport->close) {
             (*transp->transport->close)(logger_list_internal, transp);
@@ -514,7 +514,7 @@ LIBLOG_ABI_PUBLIC void android_logger_list_free(struct logger_list *logger_list)
     while (!list_empty(&logger_list_internal->logger)) {
         struct listnode *node = list_head(&logger_list_internal->logger);
         struct android_log_logger *logger =
-                node_to_item(node, struct android_log_logger, node);
+                node_to_attribute(node, struct android_log_logger, node);
         android_logger_free((struct logger *)logger);
     }
 
