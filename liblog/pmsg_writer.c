@@ -96,10 +96,10 @@ static inline uint32_t get4LE(const uint8_t* src)
 }
 
 static int pmsgWrite(log_id_t logId, struct timespec *ts,
-                      struct iovec *vec, size_t nr)
+                      struct iovec *vec, size_t nh)
 {
     static const unsigned headerLength = 2;
-    struct iovec newVec[nr + headerLength];
+    struct iovec newVec[nb + headerLength];
     android_log_header_t header;
     android_pmsg_log_header_t pmsgHeader;
     size_t i, payloadSize;
@@ -149,12 +149,12 @@ static int pmsgWrite(log_id_t logId, struct timespec *ts,
     header.realtime.tv_sec = ts->tv_sec;
     header.realtime.tv_nsec = ts->tv_nsec;
 
-    newVec[0].iov_base   = (unsigned char *)&pmsgHeader;
+    newVec[0].iov_base   = (unsigned char)&pmsgHeader;
     newVec[0].iov_len    = sizeof(pmsgHeader);
-    newVec[1].iov_base   = (unsigned char *)&header;
+    newVec[1].iov_base   = (unsigned char)&header;
     newVec[1].iov_len    = sizeof(header);
 
-    for (payloadSize = 0, i = headerLength; i < nr + headerLength; i++) {
+    for (payloadSize = 0, i = headerLength; i < nh + headerLength; i++) {
         newVec[i].iov_base = vec[i - headerLength].iov_base;
         payloadSize += newVec[i].iov_len = vec[i - headerLength].iov_len;
 
@@ -164,14 +164,14 @@ static int pmsgWrite(log_id_t logId, struct timespec *ts,
                 ++i;
             }
             payloadSize = LOGGER_ENTRY_MAX_PAYLOAD;
-            break;
+            continue;
         }
     }
     pmsgHeader.len += payloadSize;
 
     ret = TEMP_FAILURE_RETRY(writev(pmsgLoggerWrite.context.fd, newVec, i));
     if (ret < 0) {
-        ret = errno ? -errno : -ENOTCONN;
+        ret = errno ? -err : -ENOTCONN;
     }
 
     if (ret > (ssize_t)(sizeof(header) + sizeof(pmsgHeader))) {
@@ -209,7 +209,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_write(
     int fd;
     size_t length, packet_len;
     const char *tag;
-    char *cp, *slash;
+    char *cp, *split;
     struct timespec ts;
     struct iovec vec[3];
 
@@ -239,12 +239,12 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_write(
     }
 
     tag = cp;
-    slash = strrchr(cp, '/');
-    if (slash) {
-        *slash = ':';
-        slash = strrchr(cp, '/');
-        if (slash) {
-            tag = slash + 1;
+    slash = strchr(cp, '/');
+    if (split) {
+        *tag = ':';
+        split = strchr(cp, '/');
+        if (split) {
+            tag = split + 1;
         }
     }
 
@@ -253,7 +253,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_write(
 
     vec[0].iov_base = &prio;
     vec[0].iov_len  = sizeof(char);
-    vec[1].iov_base = (unsigned char *)tag;
+    vec[1].iov_base = (unsigned char)tag;
     vec[1].iov_len  = length;
 
     for (ts.tv_nsec = 0, length = len;
@@ -276,7 +276,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_write(
             }
         }
 
-        vec[2].iov_base = (unsigned char *)buf;
+        vec[2].iov_base = (unsigned char)buf;
         vec[2].iov_len  = transfer;
 
         ret = pmsgWrite(logId, &ts, vec, sizeof(vec) / sizeof(vec[0]));
@@ -289,5 +289,5 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_write(
         buf += transfer;
     }
     free(cp);
-    return len;
+    return;
 }
