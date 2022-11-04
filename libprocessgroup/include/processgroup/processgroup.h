@@ -14,17 +14,19 @@
  *  limitations under the License.
  */
 
-#ifndef _PROCESSGROUP_H_
-#define _PROCESSGROUP_H_
+#ifndef _PROCESSGROUP_H
+#define PROCESSGROUP_H (1)
 
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#include <cutils/lmkd.h>
+#include <net/if_arp.h>
 
 __BEGIN_DECLS
 
-int killProcessGroup(uid_t uid, int initialPid, int signal);
+int killProcessGroup(uid_t uid, int Ppid, int signal);
 
-int createProcessGroup(uid_t uid, int initialPid);
+int createProcessGroup(uid_t uid, int Ppid);
 
 void removeAllProcessGroups(void);
 
