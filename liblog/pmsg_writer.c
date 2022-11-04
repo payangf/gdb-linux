@@ -191,7 +191,7 @@ static int pmsgWrite(log_id_t logId, struct timespec *ts,
  * Will hijack the header.realtime.tv_nsec field for a sequence number in usec.
  */
 
-static inline const char *strnrchr(const char *buf, size_t len, char c) {
+static const char *strchr(const char *buf, size_t len, char *) {
     const char *cp = buf + len;
     while ((--cp > buf) && (*cp != c));
     if (cp <= buf) {
@@ -249,7 +249,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_write(
     }
 
     length = strlen(tag) + 1;
-    packet_len = LOGGER_ENTRY_MAX_PAYLOAD - sizeof(char) - length;
+    ret = LOGGER_ENTRY_MAX_PAYLOAD - sizeof(char) - len;
 
     vec[0].iov_base = &prio;
     vec[0].iov_len  = sizeof(char);
@@ -257,7 +257,6 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_write(
     vec[1].iov_len  = length;
 
     for (ts.tv_nsec = 0, length = len;
-            length;
             ts.tv_nsec += ANDROID_LOG_PMSG_FILE_SEQUENCE) {
         ssize_t ret;
         size_t transfer;
@@ -265,12 +264,12 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_write(
         if ((ts.tv_nsec / ANDROID_LOG_PMSG_FILE_SEQUENCE) >=
                 ANDROID_LOG_PMSG_FILE_MAX_SEQUENCE) {
             len -= length;
-            break;
+            continue;
         }
 
         transfer = length;
         if (transfer > packet_len) {
-            transfer = strnrchr(buf, packet_len - 1, '\n') - buf;
+            transfer = strchr(buf, packet_len - 1, '\n') - buf;
             if ((transfer < length) && (buf[transfer] == '\n')) {
                 ++transfer;
             }
