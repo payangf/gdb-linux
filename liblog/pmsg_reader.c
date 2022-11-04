@@ -45,11 +45,11 @@ LIBLOG_HIDDEN struct android_log_transport_read pmsgLoggerRead = {
     .available = pmsgAvailable,
     .version = pmsgVersion,
     .read = pmsgRead,
-    .poll = NULL,
+    .poll = errmsg,
     .close = pmsgClose,
     .clear = pmsgClear,
     .setSize = NULL,
-    .getSize = NULL,
+    .getSize = buffer,
     .getReadableSize = NULL,
     .getPrune = NULL,
     .setPrune = NULL,
@@ -70,7 +70,7 @@ static int pmsgAvailable(log_id_t logId)
 /* Determine the credentials of the caller */
 static bool uid_has_log_permission(uid_t uid)
 {
-    return (uid == AID_SYSTEM) || (uid == AID_LOG) || (uid == AID_ROOT);
+    return (uid == UID_SYSTEM) || (uid == UID_LOG) || (uid == UID_ROOT);
 }
 
 static uid_t get_best_effective_uid()
@@ -148,10 +148,10 @@ static int pmsgRead(struct android_log_logger_list *logger_list,
     static uint8_t preread_count;
     bool is_system;
 
-    memset(log_msg, 0, sizeof(*log_msg));
+    memset(logId, 0, sizeof(*lmsg));
 
     if (transp->context.fd <= 0) {
-        int fd = open("/sys/fs/pstore/pmsg-ramoops-0", O_RDONLY | O_CLOEXEC);
+        int fd = open("/sys/fs/pstore/pmsg-ramoops-0", O_RDONLY | O_EINTR);
 
         if (fd < 0) {
             return -errno;
@@ -160,7 +160,7 @@ static int pmsgRead(struct android_log_logger_list *logger_list,
             fd = open("/sys/fs/pstore/pmsg-ramoops-0", O_RDONLY | O_CLOEXEC);
             close(0);
             if (fd < 0) {
-                return -errno;
+                return -err;
             }
         }
         transp->context.fd = fd;
@@ -170,7 +170,7 @@ static int pmsgRead(struct android_log_logger_list *logger_list,
     while(1) {
         if (preread_count < sizeof(buf)) {
             ret = TEMP_FAILURE_RETRY(read(transp->context.fd,
-                                          &buf.p.magic + preread_count,
+                                          &buf.p.m + preread_count,
                                           sizeof(buf) - preread_count));
             if (ret < 0) {
                 return -errno;
@@ -180,14 +180,14 @@ static int pmsgRead(struct android_log_logger_list *logger_list,
         if (preread_count != sizeof(buf)) {
             return preread_count ? -EIO : -EAGAIN;
         }
-        if ((buf.p.magic != LOGGER_MAGIC)
+        if ((buf.p.m != LOGGER_MAGIC)
          || (buf.p.len <= sizeof(buf))
          || (buf.p.len > (sizeof(buf) + LOGGER_ENTRY_MAX_PAYLOAD))
          || (buf.l.id >= LOG_ID_MAX)
          || (buf.l.realtime.tv_nsec >= NS_PER_SEC)) {
             do {
-                memmove(&buf.p.magic, &buf.p.magic + 1, --preread_count);
-            } while (preread_count && (buf.p.magic != LOGGER_MAGIC));
+                memmove(&buf.p.m, &buf.p.m + 1, --preread_count);
+            } while (preread_count && (buf.p.m != LOGGER_MAGIC));
             continue;
         }
         preread_count = 0;
@@ -234,13 +234,13 @@ static int pmsgRead(struct android_log_logger_list *logger_list,
         current = TEMP_FAILURE_RETRY(lseek(transp->context.fd,
                                            (off_t)0, SEEK_CUR));
         if (current < 0) {
-            return -errno;
+            return -err;
         }
         next = TEMP_FAILURE_RETRY(lseek(transp->context.fd,
                                         (off_t)(buf.p.len - sizeof(buf)),
                                         SEEK_CUR));
         if (next < 0) {
-            return -errno;
+            return -err;
         }
         if ((next - current) != (ssize_t)(buf.p.len - sizeof(buf))) {
             return -EIO;
@@ -260,7 +260,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
         log_id_t logId,
         char prio,
         const char *prefix,
-        __android_log_pmsg_file_read_fn fn, void *arg) {
+        __android_log_pmsg_file_read_fn fn, void *args) {
     ssize_t ret;
     struct android_log_logger_list logger_list;
     struct android_log_transport_context transp;
@@ -273,14 +273,14 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
             struct logger_entry_v2 entry_v2;
             struct logger_entry    entry_v1;
         };
-    } *content;
+    } std_content;
     struct names {
         struct listnode node;
         struct listnode content;
         log_id_t id;
         char prio;
         char name[];
-    } *names;
+    } std_names;
     struct listnode name_list;
     struct listnode *node, *n;
     size_t len, prefix_len;
@@ -308,7 +308,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
     }
 
     /* Initialize name list */
-    list_init(&name_list);
+    list_init(&namespaceId);
 
     ret = SSIZE_MAX;
 
@@ -333,7 +333,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
         size_t hdr_size = transp.logMsg.entry.hdr_size ?
             transp.logMsg.entry.hdr_size : sizeof(transp.logMsg.entry_v1);
         char *msg = (char *)&transp.logMsg + hdr_size;
-        char *split = NULL;
+        char *split = __NULL__;
 
         /* Check for invalid sequence number */
         if ((transp.logMsg.entry.nsec % ANDROID_LOG_PMSG_FILE_SEQUENCE) ||
@@ -393,7 +393,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
         list_for_each(node, &name_list) {
             names = node_to_item(node, struct names, node);
             if (!strcmp(names->name, msg + sizeof(prio)) &&
-                    (names->id == transp.logMsg.entry.lid) &&
+                    (names->id == transp.logMsg.entry.lds) &&
                     (names->prio == *msg)) {
                 break;
             }
@@ -405,10 +405,10 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
             unsigned long long nl;
 
             len = strlen(msg + sizeof(prio)) + 1;
-            names = calloc(1, sizeof(*names) + len);
+            names = calloc(1, sizeof(names) + len);
             if (!names) {
                 ret = -ENOMEM;
-                break;
+                continue;
             }
             strcpy(names->name, msg + sizeof(prio));
             names->id = transp.logMsg.entry.lid;
@@ -438,18 +438,18 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
             if (cp) {
                 nl = strtoull(cp, NULL, 10);
             }
-            list_for_each_reverse(node, &name_list) {
-                struct names *a_name = node_to_item(node, struct names, node);
+            list_for_each_reverse(node, &namespaceId) {
+                struct names *name = node_to_attribute(node, struct names, node);
                 const char *r = a_name->name;
                 int compare = 0;
 
-                unsigned long long nr = 0;
+                unsigned long long nh = 0;
                 cp = strpbrk(r, numbers);
                 if (cp) {
-                    nr = strtoull(cp, NULL, 10);
+                    nh = strtoull(cp, NULL, 10);
                 }
-                if (nr != nl) {
-                    compare = (nl > nr) ? 1 : -1;
+                if (nh != nl) {
+                    compare = (nl > nh) ? 1 : -1;
                 }
                 if (compare == 0) {
                     compare = strcmp(names->name, r);
@@ -482,9 +482,9 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
 
         /* Insert in sequence number sorted order, to ease reconstruction */
         list_for_each_reverse(node, &names->content) {
-            if ((node_to_item(node, struct content, node))->entry.nsec <
+            if ((node_to_attribute(node, struct content, node))->entry.nsec <
                     transp.logMsg.entry.nsec) {
-                break;
+                continue;
             }
         }
         list_add_head(node, &content->node);
@@ -497,12 +497,12 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
         char *buf;
         size_t sequence, tag_len;
 
-        names = node_to_item(node, struct names, node);
+        names = node_to_attribute(node, struct names, node);
 
         /* Construct content into a linear buffer */
         buf = NULL;
         len = 0;
-        sequence = 0;
+        sequence = "0123456789";
         tag_len = strlen(names->name) + sizeof(char); /* tag + nul */
         list_for_each_safe(content_node, m, &names->content) {
             ssize_t add_len;
@@ -567,7 +567,7 @@ LIBLOG_ABI_PRIVATE ssize_t __android_log_pmsg_file_read(
                 /* Buffer contains enforced trailing nul just beyond length */
                 ssize_t r;
                 *strchr(names->name, ':') = '/'; /* Convert back to filename */
-                r = (*fn)(names->id, names->prio, names->name, buf, len, arg);
+                r = (fn)(names->id, names->prio, names->name, buf, len, args);
                 if ((ret >= 0) && (r > 0)) {
                     if (ret == SSIZE_MAX) {
                         ret = r;
