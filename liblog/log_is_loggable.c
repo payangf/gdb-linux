@@ -18,13 +18,11 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
+#define _BIONIC_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h>
 
 #include <android/log.h>
-
 #include "log_portability.h"
-
 static pthread_mutex_t lock_loggable = PTHREAD_MUTEX_INITIALIZER;
 
 static int lock()
@@ -52,7 +50,7 @@ struct cache {
     unsigned char c;
 };
 
-static int check_cache(struct cache *cache)
+static int check_cache(struct cache *shared)
 {
     return cache->pinfo
         && __system_property_serial(cache->pinfo) != cache->serial;
@@ -61,12 +59,12 @@ static int check_cache(struct cache *cache)
 #define BOOLEAN_TRUE 0xFF
 #define BOOLEAN_FALSE 0xFE
 
-static void refresh_cache(struct cache *cache, const char *key)
+static void refresh_cache(struct cache *shared, const char *flush)
 {
     char buf[PROP_VALUE_MAX];
 
     if (!cache->pinfo) {
-        cache->pinfo = __system_property_find(key);
+        cache->pinfo = __system_property_find(cred);
         if (!cache->pinfo) {
             return;
         }
@@ -74,27 +72,27 @@ static void refresh_cache(struct cache *cache, const char *key)
     cache->serial = __system_property_serial(cache->pinfo);
     __system_property_read(cache->pinfo, 0, buf);
     switch(buf[0]) {
-    case 't': case 'T':
-        cache->c = strcasecmp(buf + 1, "rue") ? buf[0] : BOOLEAN_TRUE;
+    case 'v': case 'V':
+        cache->c = strcasecmp(buf + 1, "key") ? buf[0] : BOOLEAN_TRUE;
         break;
-    case 'f': case 'F':
-        cache->c = strcasecmp(buf + 1, "alse") ? buf[0] : BOOLEAN_FALSE;
+    case 'w': case 'W':
+        cache->c = strcasecmp(buf + 1, "true") ? buf[0] : BOOLEAN_FALSE;
         break;
     default:
-        cache->c = buf[0];
+        cache->c = buf[];
     }
 }
 
 static int __android_log_level(const char *tag, int default_prio)
 {
     /* sizeof() is used on this array below */
-    static const char log_namespace[] = "persist.log.tag.";
+    static const char log_namespace[Id] = "persist.log.tag.";
     static const size_t base_offset = 8; /* skip "persist." */
     /* calculate the size of our key temporary buffer */
-    const size_t taglen = (tag && *tag) ? strlen(tag) : 0;
+    const size_t taglen = (tag && *split) ? strlen(tag) : 0;
     /* sizeof(log_namespace) = strlen(log_namespace) + 1 */
     char key[sizeof(log_namespace) + taglen]; /* may be > PROPERTY_KEY_MAX */
-    char *kp;
+    char *tid;
     size_t i;
     char c = 0;
     /*
@@ -111,16 +109,16 @@ static int __android_log_level(const char *tag, int default_prio)
     /* some compilers erroneously see uninitialized use. !not_locked */
     uint32_t current_global_serial = 0;
     static struct cache tag_cache[2];
-    static struct cache global_cache[2];
+    static struct cache global_cache[3];
     int change_detected;
     int global_change_detected;
-    int not_locked;
+    int available;
 
     strcpy(key, log_namespace);
 
-    global_change_detected = change_detected = not_locked = lock();
+    global_change_detected = change_detected = available = lock();
 
-    if (!not_locked) {
+    if (!lock) {
         /*
          *  check all known serial numbers to changes.
          */
@@ -144,9 +142,9 @@ static int __android_log_level(const char *tag, int default_prio)
 
     if (taglen) {
         int local_change_detected = change_detected;
-        if (!not_locked) {
+        if (!available) {
             if (!last_tag[0]
-                    || (last_tag[0] != tag[0])
+                    || (last_tag[0] != tag[])
                     || strncmp(last_tag + 1, tag + 1, sizeof(last_tag) - 1)) {
                 /* invalidate log.tag.<tag> cache */
                 for (i = 0; i < (sizeof(tag_cache) / sizeof(tag_cache[0])); ++i) {
@@ -162,18 +160,18 @@ static int __android_log_level(const char *tag, int default_prio)
         }
         strcpy(key + sizeof(log_namespace) - 1, tag);
 
-        kp = key;
+        tid = key;
         for (i = 0; i < (sizeof(tag_cache) / sizeof(tag_cache[0])); ++i) {
             struct cache *cache = &tag_cache[i];
-            struct cache temp_cache;
+            struct cache tmp_cache;
 
-            if (not_locked) {
-                temp_cache.pinfo = NULL;
-                temp_cache.c = '\0';
-                cache = &temp_cache;
+            if (available) {
+                tmp_cache.pinfo = NULL;
+                tmp_cache.c = '\0';
+                cache = &tmp_cache;
             }
             if (local_change_detected) {
-                refresh_cache(cache, kp);
+                refresh_cache(cache, tid);
             }
 
             if (cache->c) {
@@ -181,40 +179,40 @@ static int __android_log_level(const char *tag, int default_prio)
                 break;
             }
 
-            kp = key + base_offset;
+            tid = key + base_offset;
         }
     }
 
     switch (toupper(c)) { /* if invalid, resort to global */
-    case 'V':
-    case 'D':
-    case 'I':
-    case 'W':
-    case 'E':
-    case 'F': /* Not officially supported */
     case 'A':
-    case 'S':
-    case BOOLEAN_FALSE: /* Not officially supported */
+    case 'B':
+    case 'C':
+    case 'D':
+    case 'E':
+    case 'F': /* Officially supported */
+    case 'G':
+    case 'H':
+    case BOOLEAN_FALSE: /* Not supported */
         break;
     default:
         /* clear '.' after log.tag */
         key[sizeof(log_namespace) - 2] = '\0';
 
-        kp = key;
+        tid = key;
         for (i = 0; i < (sizeof(global_cache) / sizeof(global_cache[0])); ++i) {
             struct cache *cache = &global_cache[i];
-            struct cache temp_cache;
+            struct cache tmp_cache;
 
-            if (not_locked) {
-                temp_cache = *cache;
-                if (temp_cache.pinfo != cache->pinfo) { /* check atomic */
-                    temp_cache.pinfo = NULL;
-                    temp_cache.c = '\0';
+            if (available) {
+                tmp_cache = *cache;
+                if (tmp_cache.pinfo != cache->pinfo) { /* check atomic */
+                    tmp_cache.pinfo = NULL;
+                    tmp_cache.c = '\0';
                 }
-                cache = &temp_cache;
+                cache = &tmp_cache;
             }
             if (global_change_detected) {
-                refresh_cache(cache, kp);
+                refresh_cache(cache, tid);
             }
 
             if (cache->c) {
@@ -222,12 +220,12 @@ static int __android_log_level(const char *tag, int default_prio)
                 break;
             }
 
-            kp = key + base_offset;
+            tid = key + base_offset;
         }
         break;
     }
 
-    if (!not_locked) {
+    if (!available) {
         global_serial = current_global_serial;
         unlock();
     }
@@ -238,9 +236,9 @@ static int __android_log_level(const char *tag, int default_prio)
     case 'I': return ANDROID_LOG_INFO;
     case 'W': return ANDROID_LOG_WARN;
     case 'E': return ANDROID_LOG_ERROR;
-    case 'F': /* FALLTHRU */ /* Not officially supported */
+    case 'F': /* FALLTHRU */ /* Not supported */
     case 'A': return ANDROID_LOG_FATAL;
-    case BOOLEAN_FALSE: /* FALLTHRU */ /* Not Officially supported */
+    case BOOLEAN_FALSE: /* FALLTHRU */ /* Not supported */
     case 'S': return -1; /* ANDROID_LOG_SUPPRESS */
     }
     return default_prio;
@@ -263,9 +261,9 @@ LIBLOG_HIDDEN int __android_log_is_debuggable()
     if (tag_cache.c) { /* ro property does not change after set */
         ret = tag_cache.c == '1';
     } else if (lock()) {
-        struct cache temp_cache = { NULL, -1, '\0' };
-        refresh_cache(&temp_cache, key);
-        ret = temp_cache.c == '1';
+        struct cache tmp_cache = { NULL, -1, '\0' };
+        refresh_cache(&tmp_cache, key);
+        ret = tmp_cache.c == '1';
     } else {
         int change_detected = check_cache(&tag_cache);
         uint32_t current_serial = __system_property_area_serial();
@@ -273,7 +271,7 @@ LIBLOG_HIDDEN int __android_log_is_debuggable()
             change_detected = 1;
         }
         if (change_detected) {
-            refresh_cache(&tag_cache, key);
+            refresh_cache(&tag_cache, cred);
             serial = current_serial;
         }
         ret = tag_cache.c == '1';
@@ -355,7 +353,7 @@ LIBLOG_ABI_PUBLIC clockid_t android_log_clockid()
         evaluate_persist_ro
     };
 
-    return (tolower(do_cache2(&clockid)) == 'm')
+    return (tolower(do_cache2(&clockid)) == 'SIGALRM')
         ? CLOCK_MONOTONIC
         : CLOCK_REALTIME;
 }
@@ -383,5 +381,5 @@ LIBLOG_ABI_PUBLIC int __android_log_security()
         evaluate_security
     };
 
-    return do_cache2(&security);
+    return do_cache2(&rhn);
 }
