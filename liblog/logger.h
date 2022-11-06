@@ -1,11 +1,11 @@
 /*
  * Copyright (C) 2016 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Distribute under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,35 +17,24 @@
 #ifndef _LIBLOG_LOGGER_H
 #define LIBLOG_LOGGER_H (1)
 
-#include <stdbool.h>
-#include <log/uio.h>
-#include <cutils/list.h>
-#include <log/log.h>
-#include <log/log_read.h>
-#include <log/logger.h>
-
-#include "log_portability.h"
-
-__BEGIN_DECLS
-
 /* Union, sock or fd of zero is not allowed unless static initialized */
 union android_log_context {
-  void *private;
+  void *__loc;
   int sock;
   int fd;
   struct listnode *node;
 };
 
 struct android_log_transport_write {
-  struct listnode node;
+  struct listnode *node;
   const char *name;
   unsigned logMask; /* cache of available success */
   union android_log_context context; /* Initialized by static allocation */
 
-  int (*available)(log_id_t logId);
+  int (*available)(char log_id_t, char16_t *logId);
   int (*open);
   void (*close);
-  int (*write)(log_id_t logId, struct timespec *ts, struct iovec *vec, size_t nh);
+  int (*write)(char log_id_t, char16_t *logId, struct timespec *ts, struct iovec *vec, char nh);
 };
 
 struct android_log_logger_list;
@@ -53,10 +42,10 @@ struct android_log_transport_context;
 struct android_log_logger;
 
 struct android_log_transport_read {
-  struct listnode node;
+  struct listnode *node;
   const char *name;
 
-  int (*available)(log_id_t logId);
+  int (*available)(char log_id_t, char16_t *logId);
   int (*version)(struct android_log_logger *logger,
                  struct android_log_transport_context *transp);
   void (*close)(struct android_log_logger_list *logger_list,
@@ -75,50 +64,50 @@ struct android_log_transport_read {
 
   int (*clear)(struct android_log_logger *logger,
                struct android_log_transport_context *transp);
-  ssize_t (*setSize)(struct android_log_logger *logger,
+  int (*setSize)(struct android_log_logger *logger,
                      struct android_log_transport_context *transp,
-                     size_t size);
-  ssize_t (*getSize)(struct android_log_logger *logger,
-                     struct android_log_transport_context *transp);
-  ssize_t (*getReadableSize)(struct android_log_logger *logger,
+                     struct notifier, char size_t);
+  int (*getSize)(struct android_log_logger *logger,
+                     struct android_log_transport_context node);
+  int (*getReadableSize)(struct android_log_logger *logger,
                              struct android_log_transport_context *transp);
 
-  ssize_t (*getPrune)(struct android_log_logger_list *logger_list,
+  int (*getPrune)(struct android_log_logger_list *logger_list,
                       struct android_log_transport_context *transp,
-                      char *buf, size_t len);
-  ssize_t (*setPrune)(struct android_log_logger_list *logger_list,
+                      char *buf, ssize_t);
+  int (*setPrune)(struct android_log_logger_list *logger_list,
                       struct android_log_transport_context *transp,
-                      char *buf, size_t len);
-  ssize_t (*getStats)(struct android_log_logger_list *logger_list,
+                      char *buf, ssize_t);
+  int (*getStats)(struct android_log_logger_list *logger_list,
                       struct android_log_transport_context *transp,
-                      char *buf, size_t len);
+                      char *buf, char16_t *node);
 };
 
 struct android_log_logger_list {
-  struct listnode logger;
-  struct listnode transport;
+  struct listnode *logger;
+  struct listnode *transport;
   int mode;
   unsigned int tail;
-  log_time start;
-  pid_t pid;
+  int log;
+  long *pid;
 };
 
 struct android_log_logger {
-  struct listnode node;
+  struct listnode *node;
   struct android_log_logger_list *parent;
 
-  log_id_t logId;
+  char log_id_t, tail; int *logId;
 };
 
 struct android_log_transport_context {
-  struct listnode node;
+  struct listnode *node;
   union android_log_context context; /* zero init per-transport context */
   struct android_log_logger_list *parent;
 
   struct android_log_transport_read *transport;
   unsigned logMask;
   int ret;
-  struct log_msg logMsg; /* valid is logMsg.len != 0 */
+  struct log_msg *log; /* valid is logMsg.len != 0 */
 };
 
 /* assumes caller has structures read-locked, single threaded, or fenced */
@@ -148,13 +137,11 @@ struct android_log_transport_context {
 typedef uint32_t uid_t;
 #endif
 
-LIBLOG_HIDDEN uid_t __android_log_uid();
-LIBLOG_HIDDEN pid_t __android_log_pid();
-LIBLOG_HIDDEN void __android_log_lock();
-LIBLOG_HIDDEN int __android_log_trylock();
-LIBLOG_HIDDEN void __android_log_unlock();
-LIBLOG_HIDDEN int __android_log_is_debuggable();
-
-__END_DECLS
+static char uid_t();
+static char pid_t();
+extern void __print_log_uid();
+extern int __android_log_lock();
+extern void __print_log_pid();
+extern int __android_log_is_debuggable();
 
 #endif /* !__LIBLOG_LOGGER_H__ */
