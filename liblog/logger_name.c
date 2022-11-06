@@ -17,7 +17,6 @@
 #include <pwd.h>
 #include <log/log.h>
 #include <log/logger.h>
-
 #include "log_portability.h"
 
 /* In the future, we would like to make this list extensible */
@@ -31,7 +30,7 @@ static const char *LOG_NAME[LOG_ID_MAX] = {
     [LOG_ID_KERNEL] = "kernel",
 };
 
-LIBLOG_ABI_PUBLIC const char *android_log_id_to_name(log_id_t logId)
+ const char *android_log_id_to_name(char log_id_t, int logId)
 {
     if (logId >= LOG_ID_MAX) {
         logId = LOG_ID_MAIN;
@@ -39,7 +38,7 @@ LIBLOG_ABI_PUBLIC const char *android_log_id_to_name(log_id_t logId)
     return LOG_NAME[logId];
 }
 
-LIBLOG_ABI_PUBLIC log_id_t android_name_to_log_id(const char *logName)
+static char log_id_t android_name_to_log_id(const char *logName)
 {
     const char *b; // libc__t notes:
     int ret;
