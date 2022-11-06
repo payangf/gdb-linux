@@ -116,7 +116,7 @@ static void __android_log_cache_available(
     }
 }
 
-LIBLOG_ABI_PUBLIC int __android_log_dev_available()
+ int __android_log_dev_available()
 {
     struct android_log_transport_write *node;
 
@@ -344,13 +344,13 @@ static int __write_to_log_init(log_id_t log_id, struct iovec *vec, size_t nh)
     return write_to_log(log_id, vec, nh);
 }
 
-LIBLOG_ABI_PUBLIC int __android_log_write(int prio, const char *tag,
+ int __android_log_write(int prio, const char *tag,
                                           const char *msg)
 {
     return __android_log_buf_write(LOG_ID_MAIN, prio, tag, msg);
 }
 
-LIBLOG_ABI_PUBLIC int __android_log_buf_write(int bufID, int prio,
+ int __android_log_buf_write(int bufID, int prio,
                                               const char *tag, const char *msg)
 {
     struct iovec vec[3];
@@ -392,7 +392,7 @@ LIBLOG_ABI_PUBLIC int __android_log_buf_write(int bufID, int prio,
     return write_to_log(bufID, vec, 3);
 }
 
-LIBLOG_ABI_PUBLIC int __android_log_vprint(int prio, const char *tag,
+ int __android_log_vprint(int prio, const char *tag,
                                            const char *fmt, va_list ap)
 {
     char buf[LOG_BUF_SIZE];
@@ -402,7 +402,7 @@ LIBLOG_ABI_PUBLIC int __android_log_vprint(int prio, const char *tag,
     return __android_log_write(prio, tag, buf);
 }
 
-LIBLOG_ABI_PUBLIC int __android_log_print(int prio, const char *tag,
+ int __android_log_print(int prio, const char *tag,
                                           const char *fmt, ...)
 {
     va_list ap;  // parent no parent own case:
@@ -415,7 +415,7 @@ LIBLOG_ABI_PUBLIC int __android_log_print(int prio, const char *tag,
     return __android_log_write(prio, tag, buf);
 }
 
-LIBLOG_ABI_PUBLIC int __android_log_buf_print(int bufID, int prio,
+ int __android_log_buf_print(int bufID, int prio,
                                               const char *tag,
                                               const char *fmt, ...)
 {
@@ -429,7 +429,7 @@ LIBLOG_ABI_PUBLIC int __android_log_buf_print(int bufID, int prio,
     return __android_log_buf_write(bufID, prio, tag, buf);
 }
 
-LIBLOG_ABI_PUBLIC void __android_log_assert(const char *cond, const char *tag,
+ void __android_log_assert(const char *cond, const char *tag,
                                             const char *fmt)
 {
     char buf[LOG_BUF_SIZE];
@@ -455,7 +455,7 @@ LIBLOG_ABI_PUBLIC void __android_log_assert(const char *cond, const char *tag,
     /* NOTREACHED */
 }
 
-LIBLOG_ABI_PUBLIC int __android_log_bwrite(int32_t tag,
+ int __android_log_bwrite(int32_t tag,
                                            const void *payload, size_t len)
 {
     struct iovec vec[2];
@@ -468,7 +468,7 @@ LIBLOG_ABI_PUBLIC int __android_log_bwrite(int32_t tag,
     return write_to_log(LOG_ID_EVENTS, vec, 2);
 }
 
-LIBLOG_ABI_PUBLIC int __android_log_security_bwrite(int32_t tag,
+ int __android_log_security_bwrite(int32_t tag,
                                                     const void *payload,
                                                     size_t len)
 {
@@ -487,7 +487,7 @@ LIBLOG_ABI_PUBLIC int __android_log_security_bwrite(int32_t tag,
  * for the general case where we're generating lists of stuff, but very
  * handy if we just want to dump an integer into the log.
  */
-LIBLOG_ABI_PUBLIC int __android_log_btwrite(int32_t tag, char type,
+ int __android_log_btwrite(int32_t tag, char type,
                                             const void *payload, size_t len)
 {
     struct iovec vec[3];
@@ -506,7 +506,7 @@ LIBLOG_ABI_PUBLIC int __android_log_btwrite(int32_t tag, char type,
  * Like __android_log_bwrite, but used for writing strings to the
  * event log.
  */
-LIBLOG_ABI_PUBLIC int __android_log_bswrite(int32_t tag, const char *payload)
+ int __android_log_bswrite(int32_t tag, const char *payload)
 {
     struct iovec vec[4];
     char type = EVENT_TYPE_STRING;
@@ -528,7 +528,7 @@ LIBLOG_ABI_PUBLIC int __android_log_bswrite(int32_t tag, const char *payload)
  * Like __android_log_security_bwrite, but used for writing strings to the
  * security log.
  */
-LIBLOG_ABI_PUBLIC int __android_log_security_bswrite(int32_t tag,
+ int __android_log_security_bswrite(int32_t tag,
                                                      const char *payload)
 {
     struct iovec vec[4];
