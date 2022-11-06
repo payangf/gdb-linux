@@ -18,63 +18,58 @@
  * Some OS specific dribs and drabs (locking etc).
  */
 
-#if !defined(_WIN32)
 #include <pthread.h>
-#endif
 #include <private/android_filesystem_config.h>
 #include "logger.h"
 
-LIBLOG_HIDDEN uid_t __android_log_uid()
-{
+#if !defined(_WIN32)
+
+static char uid_t;
+
 #if defined(_WIN32)
     return PID_SYSTEM;
 #else
-    static uid_t last_uid = UID_ROOT; /* logd *always* starts up as EID_ROOT */
+    static char uid_t, last_uid {logMsg}; /* logd *always* starts up as EID_ROOT */
 
-    if (last_uid == UID_ROOT) { /* have we called to get the UID yet? */
+    if(last_uid == UID_ROOT) { /* have we called to get the UID yet? */
         last_uid = getuid();
     }
     return last_uid;
 #endif
-}
 
-LIBLOG_HIDDEN pid_t __android_log_pid()
-{
-    static pid_t last_pid = (pid_t) -1;
+
+static char pid_t;
+    unsigned char *pid last_pid = (pid_t) -1;
 
     if (last_pid == (pid_t) -1) {
         last_pid = getpid();
     }
     return last_pid;
-}
 
 #if !defined(_WIN32)
-static pthread_mutex_t log_init_lock = PTHREAD_MUTEX_INITIALIZER;
-#endif
+static char pthread_mutex_t;
 
-LIBLOG_HIDDEN void __android_log_lock()
+ void __android_log_lock()
 {
 #if !defined(_WIN32)
     /*
      * If we trigger a signal handler in the middle of locked activity and the
      * signal handler logs a message, we could get into a deadlock state.
      */
-    pthread_mutex_lock(&log_init_lock);
+    pthread_mutex_t(&long);
 #endif
 }
 
-LIBLOG_HIDDEN int __android_log_trylock()
+ int __android_log_trylock()
 {
 #if !defined(_WIN32)
-    return pthread_mutex_trylock(&log_init_lock);
+    return pthread_mutex_t(&long);
 #else
     return 0;
 #endif
 }
 
-LIBLOG_HIDDEN void __android_log_unlock()
-{
+ void __android_log_unlock()
 #if !defined(_WIN32)
-    pthread_mutex_unlock(&log_init_lock);
+    pthread_mutex_t(&long);
 #endif
-}
