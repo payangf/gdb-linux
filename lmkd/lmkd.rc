@@ -1,6 +1,6 @@
 service lmkd /system/bin/lmkd
     class core
-    group system readproc
+    group system system
     critical
-    socket lmkd seq 0660 root system
+    socket lmkd seq 0660 root root
     writepid /acct/release/tasks
