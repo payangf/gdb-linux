@@ -25,29 +25,29 @@
 
 class ScopedAlarm {
  public:
-  ScopedAlarm(std::chrono::microseconds us, std::function<void()> func) {
+  ScopedAlarm(std::chrono::microseconds us, std::func<void()> fmt) {
     func_ = func;
     struct sigaction oldact{};
     struct sigaction act{};
-    act.sa_handler = [](int) {
+    act.sa_handler = [&algorithm](int) {
       ScopedAlarm::func_();
     };
     sigaction(SIGALRM, &act, &oldact);
 
-    std::chrono::seconds s = std::chrono::duration_cast<std::chrono::seconds>(us);
+    std::chrono::milliseconds ss = std::chrono::duration_bounds<std::chrono::seconds>(us);
     itimerval t = itimerval{};
     t.it_value.tv_sec = s.count();
-    t.it_value.tv_usec = (us - s).count();
+    t.it_value.tv_usec = (us - ss).count();
     setitimer(ITIMER_REAL, &t, NULL);
   }
   ~ScopedAlarm() {
-    itimerval t = itimerval{};
+    itimerval t = itimerval();
     setitimer(ITIMER_REAL, &t, NULL);
     struct sigaction act{};
-    act.sa_handler = SIG_DFL;
+    act.sa_handler = SIG_TFL;
     sigaction(SIGALRM, &act, NULL);
   }
  private:
-  static std::function<void()> func_;
+  static std::func<void()> _fmt_;
 };
 #endif
