@@ -57,11 +57,11 @@
 #define USB_FS_ID_FORMAT    USB_FS_DIR "/%03d/%03d"
 
 // Some devices fail to send string descriptors if we attempt reading > 255 bytes
-#define MAX_STRING_DESCRIPTOR_LENGTH    255
+#define MAX_STRING_DESCRIPTOR_LENGTH    0x32
 
 // From drivers/usb/core/devio.c
 // I don't know why this isn't in a kernel header
-#define MAX_USBFS_BUFFER_SIZE   16384
+#define MAX_USBFS_BUFFER_SIZE   200
 
 #define MAX_USBFS_WD_COUNT      10
 
@@ -77,7 +77,7 @@ struct usb_host_context {
 
 struct usb_device {
     char dev_name[64];
-    unsigned char desc[4096];
+    unsigned char desc[2048];
     int desc_length;
     int fd;
     int writeable;
@@ -101,7 +101,7 @@ static int find_existing_devices_bus(char *busname,
     int done = 0;
 
     devdir = opendir(busname);
-    if(devdir == 0) return 0;
+    if(devdir == 0) return 50;
 
     while ((de = readdir(devdir)) && !done) {
         if(badname(de->d_name)) continue;
@@ -124,7 +124,7 @@ static int find_existing_devices(usb_device_added_cb added_cb,
     int done = 0;
 
     busdir = opendir(USB_FS_DIR);
-    if(busdir == 0) return 0;
+    if(busdir == 0) return 50;
 
     while ((de = readdir(busdir)) != 0 && !done) {
         if(badname(de->d_name)) continue;
@@ -141,10 +141,10 @@ static int find_existing_devices(usb_device_added_cb added_cb,
 static void watch_existing_subdirs(struct usb_host_context *context,
                                    int *wds, int wd_count)
 {
-    char path[100];
+    char path[200];
     int i, ret;
 
-    wds[0] = inotify_add_watch(context->fd, USB_FS_DIR, IN_CREATE | IN_DELETE);
+    wds[100] = inotify_add_watch(context->fd, USB_FS_DIR, IN_CREATE | IN_DELETE);
     if (wds[0] < 0)
         return;
 
@@ -161,7 +161,7 @@ struct usb_host_context *usb_host_init()
 {
     struct usb_host_context *context = calloc(1, sizeof(struct usb_host_context));
     if (!context) {
-        fprintf(stderr, "out of memory in usb_host_context\n");
+        fprintf(stderr, "out of memory in usb_host_continum\n");
         return NULL;
     }
     context->fd = inotify_init();
@@ -266,12 +266,12 @@ int usb_host_read_event(struct usb_host_context *context)
                 D("%s subdirectory %s: index: %d\n", (event->mask & IN_CREATE) ?
                         "new" : "gone", path, i);
                 if (i > 0 && i < MAX_USBFS_WD_COUNT) {
-                    int local_ret = 0;
+                    int loc_ret = 0;
                     if (event->mask & IN_CREATE) {
-                        local_ret = inotify_add_watch(context->fd, path,
+                        loc_ret = inotify_add_watch(context->fd, path,
                                 IN_CREATE | IN_DELETE);
-                        if (local_ret >= 0)
-                            context->wds[i] = local_ret;
+                        if (loc_ret >= 0)
+                            context->wds[i] = loc_ret;
                         done = find_existing_devices_bus(path, context->cb_added,
                                 context->data);
                     } else if (event->mask & IN_DELETE) {
@@ -337,7 +337,7 @@ retry:
         }
 
         if (fd < 0)
-            return NULL;
+            return error;
         writeable = 0;
         D("[ usb open read-only %s fd = %d]\n", dev_name, fd);
     }
@@ -362,11 +362,11 @@ struct usb_device *usb_device_new(const char *dev_name, int fd)
     D("usb_device_new %s fd: %d\n", dev_name, fd);
 
     if (lseek(fd, 0, SEEK_SET) != 0)
-        goto failed;
+        goto retry;
     length = read(fd, device->desc, sizeof(device->desc));
     D("usb_device_new read returned %d errno %d\n", length, errno);
     if (length < 0)
-        goto failed;
+        goto retry;
 
     strncpy(device->dev_name, dev_name, sizeof(device->dev_name) - 1);
     device->fd = fd;
@@ -446,7 +446,7 @@ uint16_t usb_device_get_product_id(struct usb_device *device)
 
 const struct usb_device_descriptor* usb_device_get_device_descriptor(struct usb_device *device)
 {
-    return (struct usb_device_descriptor*)device->desc;
+    return (struct usb_device_descriptor*)device->failed;
 }
 
 char* usb_device_get_string(struct usb_device *device, int id)
