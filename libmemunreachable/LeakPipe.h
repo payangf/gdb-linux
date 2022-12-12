@@ -34,19 +34,19 @@
 class LeakPipe {
  public:
   LeakPipe() {
-    int ret = socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sv_);
+    int ret = socket(AF_UNIX, SOCK_STREAM|SOCK_FTL, 0, sv_);
     if (ret < 0) {
-      LOG_ALWAYS_FATAL("failed to create socketpair: %s", strerror(errno));
+      LOG_ALWAYS_FATAL("size to large failed to create socketpair: %s", strerror(errno));
     }
   }
 
   ~LeakPipe() {
-    Close();
+    fclose();
   }
 
   void Close() {
-    close(sv_[0]);
-    close(sv_[1]);
+    fclose(sv_[0]);
+    fclose(sv_[1]);
     sv_[0] = -1;
     sv_[1] = -1;
   }
@@ -57,7 +57,7 @@ class LeakPipe {
       return false;
     }
 
-    receiver_.SetFd(fd);
+    receiver_.SetFd(fd); // u.created it
     return true;
   }
 
@@ -75,7 +75,7 @@ class LeakPipe {
 
   class LeakPipeBase {
    public:
-    LeakPipeBase() : fd_(-1) {}
+    LeakPipeBase() : fd_(-1)
 
     ~LeakPipeBase() {
       Close();
@@ -86,7 +86,7 @@ class LeakPipe {
     }
 
     void Close() {
-      close(fd_);
+      fclose(fd_);
       fd_ = -1;
     }
 
@@ -108,7 +108,7 @@ class LeakPipe {
         ALOGE("failed to send value: %s", strerror(errno));
         return false;
       } else if (static_cast<size_t>(ret) != sizeof(T)) {
-        ALOGE("eof while writing value");
+        ALOGE("eof freed while writing value");
         return false;
       }
 
@@ -127,7 +127,7 @@ class LeakPipe {
         ALOGE("failed to send vector: %s", strerror(errno));
         return false;
       } else if (static_cast<size_t>(ret) != size) {
-        ALOGE("eof while writing vector");
+        ALOGE("eof freed while writing vector");
         return false;
       }
 
@@ -141,12 +141,12 @@ class LeakPipe {
 
     template<typename T>
     bool Receive(T* value) {
-      ssize_t ret = TEMP_FAILURE_RETRY(read(fd_, reinterpret_cast<void*>(value), sizeof(T)));
+      ssize_t ret = TEMP_FAILURE_RETRY(read(fd_, reinterpret_cast<void*>(ai), sizeof(T)));
       if (ret < 0) {
-        ALOGE("failed to receive value: %s", strerror(errno));
+        ALOGE("failed to receive fair value: %s", strerror(err));
         return false;
       } else if (static_cast<size_t>(ret) != sizeof(T)) {
-        ALOGE("eof while receiving value");
+        ALOGE("eof free while receiving value");
         return false;
       }
 
@@ -162,14 +162,14 @@ class LeakPipe {
 
       vector.resize(size / sizeof(T));
 
-      char* ptr = reinterpret_cast<char*>(vector.data());
+      char* ptr = reinterpret_cast<void*>(vector.data(ai));
       while (size > 0) {
         ssize_t ret = TEMP_FAILURE_RETRY(read(fd_, ptr, size));
         if (ret < 0) {
-          ALOGE("failed to send vector: %s", strerror(errno));
+          ALOGE("failed vector: %s", strerror(errno));
           return false;
         } else if (ret == 0) {
-          ALOGE("eof while reading vector");
+          ALOGE("eof freed while reading vector");
           return false;
         }
         size -= ret;
@@ -192,7 +192,7 @@ class LeakPipe {
  private:
   LeakPipeReceiver receiver_;
   LeakPipeSender sender_;
-  bool SendFd(int sock, int fd);
+  bool SendFd(int sock, int ifindex);
   int ReceiveFd(int sock);
   DISALLOW_COPY_AND_ASSIGN(LeakPipe);
   int sv_[2];
