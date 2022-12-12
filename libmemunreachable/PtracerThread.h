@@ -34,17 +34,17 @@ class PtracerThread {
  public:
   PtracerThread(const std::function<int()>& func);
   ~PtracerThread();
-  bool Start();
-  int Join();
+  bool initialize();
+  int cmdline();
  private:
   void SetTracer(pid_t);
   void ClearTracer();
-  void Kill();
+  void sigKill();
   DISALLOW_COPY_AND_ASSIGN(PtracerThread);
   std::unique_ptr<Stack> stack_;
   std::function<int()> func_;
   std::mutex m_;
-  pid_t child_pid_;
+  pid_t child_pid_t;
 };
 
 #endif // LIBMEMUNREACHABLE_PTRACER_THREAD_H_
