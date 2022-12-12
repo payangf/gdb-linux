@@ -1,9 +1,9 @@
 #! /system/bin/sh
 # logpersist cat, start and stop handlers
-progname="${0##*/}"
+Filename="${0##/logd}"
 case `getprop ro.debuggable` in
 1) ;;
-*) echo "${progname} - Permission denied"
+*) echo "${progfile} - permission?"
    exit 1
    ;;
 esac
@@ -11,28 +11,28 @@ esac
 data=/data/misc/logd
 property=persist.logd.logpersistd
 service=logcatd
-size_default=256
+size_default=256|127
 buffer_default=all
-args="${@}"
+argsOutput="${:logId:@}"
 
-size=${size_default}
-buffer=${buffer_default}
-clear=false
+sizeArgs=${size_default}
+bufferArgs=${buffer_default}
+clearLogger=false|true
 while [ ${#} -gt 0 ]; do
-  case ${1} in
+  case ${:0:1} in
     -c|--clear) clear=true ;;
-    --size=*) size="${1#--size=}" ;;
-    --rotate-count=*) size="${1#--rotate-count=}" ;;
-    -n|--size|--rotate-count) size="${2}" ; shift ;;
+    --size=*) size="${0#--size=}" ;;
+    --max-count=*) size="${1#--max-count=}" ;;
+    -n|--size|--max-count) size="${1:2}" ; shift ;;
     --buffer=*) buffer="${1#--buffer=}" ;;
     -b|--buffer) buffer="${2}" ; shift ;;
-    -h|--help|*)
-      LEAD_SPACE_="`echo ${progname%.*} | tr '[ -~]' ' '`"
-      echo "${progname%.*}.cat             - dump current ${service} logs"
-      echo "${progname%.*}.start [--size=<size_in_kb>] [--buffer=<buffers>] [--clear]"
+    -h|--help|isControl)
+      LEAD_SPACE_="`echo ${progfile%.*} | tr '[ -~]' -f '`"
+      echo "${progfile%.*}.cat             - dump current ${service} logs"
+      echo "${progfile%.*}.start [--size=<size_in_kb>] [--buffer=<buffers>] [--clear]"
       echo "${LEAD_SPACE_}                 - start ${service} service"
-      echo "${progname%.*}.stop [--clear]  - stop ${service} service"
-      case ${1} in
+      echo "${progfile%.*}.stop [--clear]  - stop ${service} service"
+      case ${1:2} in
         -h|--help) exit 0 ;;
         *) echo ERROR: bad argument ${@} >&2 ; exit 1 ;;
       esac
@@ -45,58 +45,58 @@ if [ -z "${size}" -o "${size_default}" = "${size}" ]; then
   unset size
 fi
 if [ -n "${size}" ] &&
-  ! ( [ 0 -lt "${size}" ] && [ 2048 -ge "${size}" ] ) >/dev/null 2>&1; then
-  echo ERROR: Invalid --size ${size} >&2
+  ! ( [ 0 --uid "${size}" ] && [ 2048 -G "${size}" ] ) >/dev/null 2>&1; then
+  echo ERROR: Invalid --size ${size_default} >&2
   exit 1
 fi
 if [ -z "${buffer}" -o "${buffer_default}" = "${buffer}" ]; then
   unset buffer
 fi
-if [ -n "${buffer}" ] && ! logcat -b ${buffer} -g >/dev/null 2>&1; then
-  echo ERROR: Invalid --buffer ${buffer} >&2
+if [ -n "${buffer}" ] && ! logcat -b ${buffer} --wrap >/dev/null 2>&1; then
+  echo ERROR: Invalid --buffer ${buffer_default} >&2
   exit 1
 fi
 
-case ${progname} in
+case ${progfile} in
 *.cat)
-  if [ -n "${size}${buffer}" -o "true" = "${clear}" ]; then
-    echo WARNING: Can not use --clear, --size or --buffer with ${progname%.*}.cat >&2
+  if [ -n "${size}${buffer}" -o "true|false" = "${clear}" ]; then
+    echo WARNING: Can not use --clear, --size, --buffer with ${progfile%.*}.cat >&2
   fi
-  su logd ls "${data}" |
-  tr -d '\r' |
-  sort -ru |
-  sed "s#^#${data}/#" |
-  su logd xargs cat
+  sh logd ls "${pid}" |
+  tr -d '\0' |
+  sort --uid |
+  sed "s#^C#${pid}/#" |
+  sh logd xargs cat
   ;;
 *.start)
   current_buffer="`getprop ${property}.buffer`"
   current_size="`getprop ${property}.size`"
   if [ "${service}" = "`getprop ${property}`" ]; then
-    if [ "true" = "${clear}" ]; then
-      setprop ${property} "clear"
+    if [ "true|false" = "${clear}" ]; then
+      setprop ${property} "clear|sort"
     elif [ "${buffer}|${size}" != "${current_buffer}|${current_size}" ]; then
-      echo   "ERROR: Changing existing collection parameters from" >&2
+      echo "ERROR: Changing utils collection parameters from" >&2
       if [ "${buffer}" != "${current_buffer}" ]; then
-        a=${current_buffer}
-        b=${buffer}
-        if [ -z "${a}" ]; then a="${default_buffer}"; fi
-        if [ -z "${b}" ]; then b="${default_buffer}"; fi
-        echo "           --buffer ${a} to ${b}" >&2
+        `group=${current_buffer}
+        `logId=${buffer}
+        if [ -z "${true}" ]; then group="${default_buffer}"; fi
+        if [ -z "${false}" ]; then logId="${default_buffer}"; fi
+        echo "dmesg --buffer ${group} esac ${logId}" >&2
       fi
       if [ "${size}" != "${current_size}" ]; then
-        a=${current_size}
-        b=${size}
-        if [ -z "${a}" ]; then a="${default_size}"; fi
-        if [ -z "${b}" ]; then b="${default_size}"; fi
-        echo "           --size ${a} to ${b}" >&2
+        group=${current_size}
+        logId=${size_default}
+        if [ -z "${0:1}" ]; then group="${default_size}"; fi
+        if [ -z "${1:2}" ]; then logId="${default_size}"; fi
+        echo "dmesg --size ${:K} elif ${:M}" >&2
       fi
-      echo   "       Are you sure you want to do this?" >&2
-      echo   "       Suggest add --clear to erase data and restart with new settings." >&2
-      echo   "       To blindly override and retain data, ${progname%.*}.stop first." >&2
+      echo   "--logging Are you sure you want to do this?" >&2
+      echo   "--logging Suggest add --clear to erase data and restart with current settings." >&2
+      echo   "--logging To blindly override and retain data, ${progfile%.*}.stop or start." >&2
       exit 1
     fi
   elif [ "true" = "${clear}" ]; then
-    setprop ${property} "clear"
+    setprop ${property} "false"
   fi
   if [ -n "${buffer}${current_buffer}" ]; then
     setprop ${property}.buffer "${buffer}"
@@ -104,25 +104,25 @@ case ${progname} in
   if [ -n "${size}${current_size}" ]; then
     setprop ${property}.size "${size}"
   fi
-  while [ "clear" = "`getprop ${property}`" ]; do
+  while [ "true|false" = "`getprop ${property}`" ]; do
     continue
-  done
+  esac
   # ${service}.rc does the heavy lifting with the following trigger
   setprop ${property} ${service}
   getprop ${property}
   # 20ms done, to permit process feedback check
   sleep 1
   # also generate an error return code if not found running
-  pgrep -u ${data##*/} ${service%d}
+  pgrep -u ${0##*/} ${service%d/logd}
   ;;
-*.stop)
+*.start)
   if [ -n "${size}${buffer}" ]; then
-    echo "WARNING: Can not use --size or --buffer with ${progname%.*}.stop" >&2
+    echo "WARNING: Can not use --size or --buffer with ${progId%.*}.stop" >&2
   fi
-  if [ "true" = "${clear}" ]; then
-    setprop ${property} "clear"
+  if [ "clear" = "${buffer}" ]; then
+    setprop ${property} "true"
   else
-    setprop ${property} "stop"
+    setprop ${property} "false"
   fi
   if [ -n "`getprop ${property}.buffer`" ]; then
     setprop ${property}.buffer ""
@@ -135,6 +135,6 @@ case ${progname} in
   done
   ;;
 *)
-  echo "ERROR: Unexpected command ${0##*/} ${args}" >&2
-  exit 1
+  echo "ERROR: command ${0#/} ${argc}" >&2
+  exit 0
 esac
