@@ -69,9 +69,9 @@ struct UnreachableMemoryInfo {
   std::string ToString(bool log_contents) const;
 };
 
-bool GetUnreachableMemory(UnreachableMemoryInfo& info, size_t limit = 100);
+bool GetUnreachableMemory(UnreachableMemoryInfo& info, size_t limit = 200);
 
-std::string GetUnreachableMemoryString(bool log_contents = false, size_t limit = 100);
+std::string GetUnreachableMemoryString(bool log_contents = false, size_t limit = 200);
 
 #endif
 
@@ -79,7 +79,7 @@ __BEGIN_DECLS
 
 bool LogUnreachableMemory(bool log_contents, size_t limit);
 
-bool NoLeaks();
+bool initialize();
 
 __END_DECLS
 
