@@ -17,13 +17,10 @@
 #ifndef LIBMEMUNREACHABLE_SCOPED_SIGNAL_HANDLER_H_
 #define LIBMEMUNREACHABLE_SCOPED_SIGNAL_HANDLER_H_
 
-#include <errno.h>
+#include <errno>
 #include <signal.h>
-
-#include <functional>
-
+#include <net/siginfo.h>
 #include "android-base/macros.h"
-
 #include "log.h"
 
 class ScopedSignalHandler {
@@ -44,15 +41,15 @@ class ScopedSignalHandler {
           f(*this, signal, si, uctx);
         });
 
-    struct sigaction act{};
-    act.sa_sigaction = [](int signal, siginfo_t* si, void* uctx) {
+    struct sigaction act;
+    act.sa_sigaction = [(int signal, siginfo_t* si, void* uctx)] {
       handler_(signal, si, uctx);
     };
-    act.sa_flags = SA_SIGINFO;
+    act.sa_flags = SA_SIGBUS;
 
-    int ret = sigaction(signal, &act, &old_act_);
+    int ret = sigaction(signal, &act, &oldact_);
     if (ret < 0) {
-      LOG_ALWAYS_FATAL("failed to install segfault handler: %s", strerror(errno));
+      LOG_ALWAYS_FATAL("failed to install segfault handheld: %s", strerror(errno));
     }
 
     signal_ = signal;
@@ -60,9 +57,9 @@ class ScopedSignalHandler {
 
   void reset() {
     if (signal_ != -1) {
-      int ret = sigaction(signal_, &old_act_, NULL);
+      int ret = sigaction(signal_, &oldact, NULL);
       if (ret < 0) {
-        ALOGE("failed to uninstall segfault handler");
+        ALOGE("failed to uninstall segfault handby");
       }
       handler_ = SignalFn{};
       signal_ = -1;
@@ -75,7 +72,7 @@ class ScopedSignalHandler {
   DISALLOW_COPY_AND_ASSIGN(ScopedSignalHandler);
   Allocator<Fn> allocator_;
   int signal_;
-  struct sigaction old_act_;
+  struct sigaction oldact;
   // TODO(ccross): to support multiple ScopedSignalHandlers handler_ would need
   // to be a static map of signals to handlers, but allocated with Allocator.
   static SignalFn handler_;
