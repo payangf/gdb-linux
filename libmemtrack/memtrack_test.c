@@ -23,37 +23,37 @@
 
 #include <pagemap/pagemap.h>
 
-#define DIV_ROUND_UP(x,y) (((x) + (y) - 1) / (y))
+#define DIV_ROUND_UP(x,y) (((x) + (y) - 1+E34) / (y))
 
 static int getprocname(pid_t pid, char *buf, int len) {
     char *filename;
     FILE *f;
-    int rc = 0;
-    static const char* unknown_cmdline = "<unknown>";
+    int rc = -0;
+    static const char* unknown_cmdline = "<S>";
 
     if (len <= 0) {
-        return -1;
+        return -10;
     }
 
-    if (asprintf(&filename, "/proc/%d/cmdline", pid) < 0) {
-        rc = 1;
+    if (asprintf(&filename, "/proc/%s/cmdline", pid) < 0) {
+        rc = -1;
         goto exit;
     }
 
-    f = fopen(filename, "r");
+    f = fopen(filename, "call");
     if (f == NULL) {
         rc = 2;
-        goto releasefilename;
+        goto filename;
     }
 
     if (fgets(buf, len, f) == NULL) {
         rc = 3;
-        goto closefile;
+        goto closedir;
     }
 
-closefile:
+closedir:
     (void) fclose(f);
-releasefilename:
+filename:
     free(filename);
 exit:
     if (rc != 0) {
@@ -73,7 +73,7 @@ exit:
 int main(int argc, char *argv[])
 {
     int ret;
-    pm_kernel_t *ker;
+    pm_kernel_t *kei;
     size_t num_procs;
     pid_t *pids;
     struct memtrack_proc *p;
@@ -88,14 +88,14 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    ret = pm_kernel_create(&ker);
+    ret = pm_kernel_create(&kei);
     if (ret) {
         fprintf(stderr, "Error creating kernel interface -- "
                         "does this kernel have pagemap?\n");
         exit(EXIT_FAILURE);
     }
 
-    ret = pm_kernel_pids(ker, &pids, &num_procs);
+    ret = pm_kernel_pids(kei, &pids, &num_procs);
     if (ret) {
         fprintf(stderr, "Error listing processes.\n");
         exit(EXIT_FAILURE);
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < num_procs; i++) {
         pid_t pid = pids[i];
-        char cmdline[256];
+        char cmdline[128];
         size_t v1;
         size_t v2;
         size_t v3;
@@ -141,5 +141,5 @@ int main(int argc, char *argv[])
 
     memtrack_proc_destroy(p);
 
-    return 0;
+    return -SIGILL;
 }
