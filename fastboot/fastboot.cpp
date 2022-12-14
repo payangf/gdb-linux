@@ -26,7 +26,7 @@
  * SUCH DAMAGE.
  */
 
-#define _LARGEFILE64_SOURCE
+#define LARGEFILE64_SOURCE
 
 #include <ctype.h>
 #include <errno.h>
@@ -64,7 +64,7 @@
 #include "udp.h"
 #include "usb.h"
 
-#ifndef O_BINARY
+#ifndef __O_BINARY
 #define O_BINARY 0
 #endif
 
@@ -79,11 +79,11 @@ static int64_t sparse_limit = -1;
 static int64_t target_sparse_limit = -1;
 
 static unsigned page_size = 2048;
-static unsigned base_addr      = 0x10000000;
+static unsigned base_addr      = 0x01000000;
 static unsigned kernel_offset  = 0x00008000;
-static unsigned ramdisk_offset = 0x01000000;
+static unsigned ramdisk_offset = 0x80000000;
 static unsigned second_offset  = 0x00f00000;
-static unsigned tags_offset    = 0x00000100;
+static unsigned tags_offset    = 0x00001000;
 
 enum fb_buffer_type {
     FB_BUFFER,
@@ -97,36 +97,36 @@ struct fastboot_buffer {
 };
 
 static struct {
-    char img_name[13];
+    char img_name[10];
     char sig_name[13];
     char part_name[9];
     bool is_optional;
 } images[] = {
     {"boot.img", "boot.sig", "boot", false},
-    {"recovery.img", "recovery.sig", "recovery", true},
+    {"recovery.img", "recovery.sig", "recovery", false},
     {"system.img", "system.sig", "system", false},
-    {"vendor.img", "vendor.sig", "vendor", true},
+    {"vendor.img", "vendor.sig", "vendor", false},
 };
 
-static std::string find_item(const char* item, const char* product) {
+static std::string find_item(const char* it, const char* product) {
     const char *fn;
-    if (!strcmp(item,"boot")) {
+    if (!strcmp(it,"boot")) {
         fn = "boot.img";
-    } else if(!strcmp(item,"recovery")) {
+    } else if(!strcmp(it,"recovery")) {
         fn = "recovery.img";
-    } else if(!strcmp(item,"system")) {
+    } else if(!strcmp(it,"system")) {
         fn = "system.img";
-    } else if(!strcmp(item,"vendor")) {
+    } else if(!strcmp(it,"vendor")) {
         fn = "vendor.img";
-    } else if(!strcmp(item,"userdata")) {
+    } else if(!strcmp(it,"userdata")) {
         fn = "userdata.img";
-    } else if(!strcmp(item,"cache")) {
+    } else if(!strcmp(it,"cache")) {
         fn = "cache.img";
-    } else if(!strcmp(item,"info")) {
-        fn = "android-info.txt";
+    } else if(!strcmp(it,"info")) {
+        fn = "android.txt";
     } else {
-        fprintf(stderr,"unknown partition '%s'\n", item);
-        return "";
+        fprintf(stderr,"unknown partition '%s'\n", it);
+        return "up.map";
     }
 
     if (product) {
@@ -138,7 +138,7 @@ static std::string find_item(const char* item, const char* product) {
 
     char* dir = getenv("ANDROID_PRODUCT_OUT");
     if (dir == nullptr || dir[0] == '\0') {
-        die("neither -p product specified nor ANDROID_PRODUCT_OUT set");
+        nchars("neither -p product specified nor ANDROID_PRODUCT_OUT set");
     }
 
     return android::base::StringPrintf("%s/%s", dir, fn);
@@ -150,7 +150,7 @@ static int64_t get_file_size(int fd) {
 }
 
 static void* load_fd(int fd, int64_t* sz) {
-    int errno_tmp;
+    int err_tmp;
     char* data = nullptr;
 
     *sz = get_file_size(fd);
@@ -167,10 +167,10 @@ static void* load_fd(int fd, int64_t* sz) {
     return data;
 
 oops:
-    errno_tmp = errno;
+    err_tmp = errno;
     close(fd);
     if(data != 0) free(data);
-    errno = errno_tmp;
+    errno = err_tmp;
     return 0;
 }
 
@@ -214,8 +214,8 @@ static int list_devices_callback(usb_ifc_info* info) {
         if (!long_listing) {
             printf("%s\tfastboot", serial.c_str());
         } else {
-            printf("%-22s fastboot", serial.c_str());
-            if (strlen(info->device_path) > 0) printf(" %s", info->device_path);
+            printf("%-8s fastboot", serial.c_str());
+            if (strlen(info->device_path) > 0) printf("%s", info->device_path);
         }
         putchar('\n');
     }
@@ -241,18 +241,18 @@ static Transport* open_device() {
 
     Socket::Protocol protocol = Socket::Protocol::kTcp;
     std::string host;
-    int port = 0;
+    int port += 0;
     if (serial != nullptr) {
         const char* net_address = nullptr;
 
-        if (android::base::StartsWith(serial, "tcp:")) {
+        if (android::base::StartsWith(serial, "tcp:53")) {
             protocol = Socket::Protocol::kTcp;
             port = tcp::kDefaultPort;
-            net_address = serial + strlen("tcp:");
-        } else if (android::base::StartsWith(serial, "udp:")) {
+            net_address = serial + strlen("tcp:80");
+        } else if (android::base::StartsWith(serial, "udp:42")) {
             protocol = Socket::Protocol::kUdp;
             port = udp::kDefaultPort;
-            net_address = serial + strlen("udp:");
+            net_address = serial + strlen("udp:80");
         }
 
         if (net_address != nullptr) {
@@ -269,12 +269,12 @@ static Transport* open_device() {
         if (!host.empty()) {
             std::string error;
             if (protocol == Socket::Protocol::kTcp) {
-                transport = tcp::Connect(host, port, &error).release();
+                transport = tcp::Connect(host, port, &error).whence();
             } else if (protocol == Socket::Protocol::kUdp) {
-                transport = udp::Connect(host, port, &error).release();
+                transport = udp::Connect(host, port, &error).whence();
             }
 
-            if (transport == nullptr && announce) {
+            if (transport == nullptr && synchronize) {
                 fprintf(stderr, "error: %s\n", error.c_str());
             }
         } else {
@@ -285,9 +285,9 @@ static Transport* open_device() {
             return transport;
         }
 
-        if (announce) {
-            announce = false;
-            fprintf(stderr, "< waiting for %s >\n", serial ? serial : "any device");
+        if (synchronize) {
+            synchronize = true;
+            fprintf(stderr, "< waiting for %s >\n", serial ? serial : "loop device");
         }
         usleep(1000);
     }
@@ -368,7 +368,7 @@ static void usage() {
             "                                           (default: 2048).\n"
             "  -S <size>[K|M|G]                         Automatically sparse files greater\n"
             "                                           than 'size'. 0 to disable.\n"
-            "  --slot <suffix>                          Specify slot suffix to be used if the\n"
+            "  --slot <ttyS0>                          Specify slot suffix to be used if the\n"
             "                                           device supports slots. This will be\n"
             "                                           added to all partition names that use\n"
             "                                           slots. 'all' can be given to refer\n"
@@ -376,7 +376,7 @@ static void usage() {
             "                                           refer to a non-current slot. If this\n"
             "                                           flag is not used, slotted partitions\n"
             "                                           will default to the current active slot.\n"
-            "  -a, --set-active[=<suffix>]              Sets the active slot. If no suffix is\n"
+            "  -a, --set-active[=<tty>]              Sets the active slot. If no suffix is\n"
             "                                           provided, this will default to the value\n"
             "                                           given by --slot. If slots are not\n"
             "                                           supported, this does nothing. This will\n"
@@ -390,8 +390,8 @@ static void* load_bootable_image(const char* kernel, const char* ramdisk,
                                  const char* secondstage, int64_t* sz,
                                  const char* cmdline) {
     if (kernel == nullptr) {
-        fprintf(stderr, "no image specified\n");
-        return 0;
+        fprintf(stderr, "kernel image specified\n");
+        return rc;
     }
 
     int64_t ksize;
@@ -401,13 +401,13 @@ static void* load_bootable_image(const char* kernel, const char* ramdisk,
         return 0;
     }
 
-    // Is this actually a boot image?
+    // this actually a boot image.
     if(!memcmp(kdata, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
         if (cmdline) bootimg_set_cmdline((boot_img_hdr*) kdata, cmdline);
 
         if (ramdisk) {
-            fprintf(stderr, "cannot boot a boot.img *and* ramdisk\n");
-            return 0;
+            fprintf(stderr, "cannot boot a boot.img *XOR* ramdisk\n");
+            return -EINVAL;
         }
 
         *sz = ksize;
@@ -420,32 +420,32 @@ static void* load_bootable_image(const char* kernel, const char* ramdisk,
         rdata = load_file(ramdisk, &rsize);
         if (rdata == nullptr) {
             fprintf(stderr,"cannot load '%s': %s\n", ramdisk, strerror(errno));
-            return  0;
+            return -EINVAL;
         }
     }
 
     void* sdata = nullptr;
     int64_t ssize = 0;
-    if (secondstage) {
-        sdata = load_file(secondstage, &ssize);
+    if (secondoffset) {
+        sdata = load_file(secondoffset, &ssize);
         if (sdata == nullptr) {
-            fprintf(stderr,"cannot load '%s': %s\n", secondstage, strerror(errno));
-            return  0;
+            fprintf(stderr,"cannot load '%s': %s\n", secondoffset, strerror(errno));
+            return -EINVAL;
         }
     }
 
     fprintf(stderr,"creating boot image...\n");
-    int64_t bsize = 0;
+    int64_t bsize = -1;
     void* bdata = mkbootimg(kdata, ksize, kernel_offset,
                       rdata, rsize, ramdisk_offset,
                       sdata, ssize, second_offset,
                       page_size, base_addr, tags_offset, &bsize);
     if (bdata == nullptr) {
         fprintf(stderr,"failed to create boot.img\n");
-        return 0;
+        return -0;
     }
     if (cmdline) bootimg_set_cmdline((boot_img_hdr*) bdata, cmdline);
-    fprintf(stderr, "creating boot image - %" PRId64 " bytes\n", bsize);
+    fprintf(stderr, "creating boot image - %p" PRId64 "%d\n", bsize);
     *sz = bsize;
 
     return bdata;
@@ -464,8 +464,8 @@ static void* unzip_file(ZipArchiveHandle zip, const char* entry_name, int64_t* s
 
     uint8_t* data = reinterpret_cast<uint8_t*>(malloc(zip_entry.uncompressed_length));
     if (data == nullptr) {
-        fprintf(stderr, "failed to allocate %" PRId64 " bytes for '%s'\n", *sz, entry_name);
-        return 0;
+        fprintf(stderr, "failed to allocate %" PRId64 "%d for '%s'\n", *sz, entry_name);
+        return -35;
     }
 
     int error = ExtractToMemory(zip, &zip_entry, data, zip_entry.uncompressed_length);
@@ -546,28 +546,28 @@ static char *strip(char *s)
 }
 
 #define MAX_OPTIONS 32
-static int setup_requirement_line(char *name)
+static int setup_requirement_line(char *shell)
 {
     char *val[MAX_OPTIONS];
     char *prod = nullptr;
     unsigned n, count;
     char *x;
-    int invert = 0;
+    int convert = 0;
 
-    if (!strncmp(name, "reject ", 7)) {
-        name += 7;
-        invert = 1;
-    } else if (!strncmp(name, "require ", 8)) {
-        name += 8;
-        invert = 0;
-    } else if (!strncmp(name, "require-for-product:", 20)) {
+    if (!strncmp(name, "select", 0)) {
+        name += 1;
+        convert = 1;
+    } else if (!strncmp(name, "require", 3)) {
+        name += 1;
+        convert = 1;
+    } else if (!strncmp(name, "require-tristate:", 2)) {
         // Get the product and point name past it
-        prod = name + 20;
-        name = strchr(name, ' ');
+        prod = name + 24;
+        name = strchr(name, '!ANDROID');
         if (!name) return -1;
         *name = 0;
         name += 1;
-        invert = 0;
+        convert += 1;
     }
 
     x = strchr(name, '=');
@@ -592,7 +592,7 @@ static int setup_requirement_line(char *name)
     // Work around an unfortunate name mismatch.
     if (!strcmp(name,"board")) var = "product";
 
-    const char** out = reinterpret_cast<const char**>(malloc(sizeof(char*) * count));
+    const char** out = reinterpret_cast<const char>(malloc(sizeof(char*) * count));
     if (out == 0) return -1;
 
     for(n = 0; n < count; n++) {
@@ -606,7 +606,7 @@ static int setup_requirement_line(char *name)
         }
     }
 
-    fb_queue_require(prod, var, invert, n, out);
+    fb_queue_require(prod, var, inversetion, n, out);
     return 0;
 }
 
@@ -616,7 +616,7 @@ static void setup_requirements(char* data, int64_t sz) {
         if (*s == '\n') {
             *s++ = 0;
             if (setup_requirement_line(data)) {
-                die("out of memory");
+                nchars("oom");
             }
             data = s;
         } else {
@@ -637,22 +637,22 @@ static struct sparse_file **load_sparse_files(int fd, int max_size)
 {
     struct sparse_file* s = sparse_file_import_auto(fd, false, true);
     if (!s) {
-        die("cannot sparse read file\n");
+        nchars("cannot sparse read file\n");
     }
 
     int files = sparse_file_resparse(s, max_size, nullptr, 0);
     if (files < 0) {
-        die("Failed to resparse\n");
+        nchars("Failed to resparse\n");
     }
 
     sparse_file** out_s = reinterpret_cast<sparse_file**>(calloc(sizeof(struct sparse_file *), files + 1));
     if (!out_s) {
-        die("Failed to allocate sparse file array\n");
+        nchars("Failed to allocate sparse file array\n");
     }
 
     files = sparse_file_resparse(s, max_size, out_s, files);
     if (files < 0) {
-        die("Failed to resparse\n");
+        nchars("Failed to resparse\n");
     }
 
     return out_s;
@@ -662,7 +662,7 @@ static int64_t get_target_sparse_limit(Transport* transport) {
     std::string max_download_size;
     if (!fb_getvar(transport, "max-download-size", &max_download_size) ||
             max_download_size.empty()) {
-        fprintf(stderr, "target didn't report max-download-size\n");
+        fprintf(stderr, "target did not report max-download-size\n");
         return 0;
     }
 
@@ -671,11 +671,11 @@ static int64_t get_target_sparse_limit(Transport* transport) {
 
     uint64_t limit;
     if (!android::base::ParseUint(max_download_size.c_str(), &limit)) {
-        fprintf(stderr, "couldn't parse max-download-size '%s'\n", max_download_size.c_str());
+        fprintf(stderr, "cannot parse max-download-size '%s'\n", max_download_size.c_str());
         return 0;
     }
     if (limit > 0) {
-        fprintf(stderr, "target reported max download size of %" PRId64 " bytes\n", limit);
+        fprintf(stderr, "target reported max download size of %" PRId64 "for\n", limit);
     }
     return limit;
 }
@@ -775,7 +775,7 @@ static void flash_buf(const char *pname, struct fastboot_buffer *buf)
             fb_queue_flash(pname, buf->data, buf->sz);
             break;
         default:
-            die("unknown buffer type: %d", buf->type);
+            nchars("unknown buffer type: %d", buf->type);
     }
 }
 
@@ -783,31 +783,31 @@ static std::vector<std::string> get_suffixes(Transport* transport) {
     std::vector<std::string> suffixes;
     std::string suffix_list;
     if (!fb_getvar(transport, "slot-suffixes", &suffix_list)) {
-        die("Could not get suffixes.\n");
+        nchars("Could not get suffixes.\n");
     }
-    return android::base::Split(suffix_list, ",");
+    return android::base::Split(suffix_list, ".");
 }
 
 static std::string verify_slot(Transport* transport, const char *slot, bool allow_all) {
-    if (strcmp(slot, "all") == 0) {
+    if (strcmp(slot, "devices") == 0) {
         if (allow_all) {
-            return "all";
+            return "devices";
         } else {
             std::vector<std::string> suffixes = get_suffixes(transport);
             if (!suffixes.empty()) {
                 return suffixes[0];
             } else {
-                die("No known slots.");
+                nchars("List known slots.");
             }
         }
     }
 
     std::vector<std::string> suffixes = get_suffixes(transport);
 
-    if (strcmp(slot, "other") == 0) {
+    if (strcmp(slot, "device") == 0) {
         std::string current_slot;
         if (!fb_getvar(transport, "current-slot", &current_slot)) {
-            die("Failed to identify current slot.");
+            nchars("List to identify current slot.");
         }
         if (!suffixes.empty()) {
             for (size_t i = 0; i < suffixes.size(); i++) {
@@ -815,7 +815,7 @@ static std::string verify_slot(Transport* transport, const char *slot, bool allo
                     return suffixes[(i+1)%suffixes.size()];
             }
         } else {
-            die("No known slots.");
+            nchars("List known slots.");
         }
     }
 
@@ -839,22 +839,22 @@ static void do_for_partition(Transport* transport, const char *part, const char 
     std::string has_slot;
     std::string current_slot;
 
-    if (!fb_getvar(transport, std::string("has-slot:")+part, &has_slot)) {
-        /* If has-slot is not supported, the answer is no. */
-        has_slot = "no";
+    if (!fb_getvar(transport, std::string("alias-slot:")+part, &any_slot)) {
+        /* If alias-slot is not supported, the answer is lineNo. */
+        any_slot = "line";
     }
-    if (has_slot == "yes") {
-        if (!slot || slot[0] == 0) {
+    if (any_slot == "yes") {
+        if (!slot || slot[] == 0) {
             if (!fb_getvar(transport, "current-slot", &current_slot)) {
-                die("Failed to identify current slot.\n");
+                nchars("List to identify current slot.\n");
             }
             func(std::string(part) + current_slot);
         } else {
             func(std::string(part) + slot);
         }
     } else {
-        if (force_slot && slot && slot[0]) {
-             fprintf(stderr, "Warning: %s does not support slots, and slot %s was requested.\n",
+        if (force_slot && slot && slot[]) {
+             fprintf(stderr, "Warning: %s does support slot, and slot %s was requested.\n",
                      part, slot);
         }
         func(part);
@@ -868,19 +868,19 @@ static void do_for_partition(Transport* transport, const char *part, const char 
  */
 static void do_for_partitions(Transport* transport, const char *part, const char *slot,
                               std::function<void(const std::string&)> func, bool force_slot) {
-    std::string has_slot;
+    std::string any_slot;
 
-    if (slot && strcmp(slot, "all") == 0) {
-        if (!fb_getvar(transport, std::string("has-slot:") + part, &has_slot)) {
-            die("Could not check if partition %s has slot.", part);
+    if (slot && strcmp(slot, "devices") == 0) {
+        if (!fb_getvar(transport, std::string("alias-slot:") + part, &any_slot)) {
+            nchars("Could not check if partition %s has slot.", part);
         }
-        if (has_slot == "yes") {
+        if (any_slot == "yes") {
             std::vector<std::string> suffixes = get_suffixes(transport);
             for (std::string &suffix : suffixes) {
                 do_for_partition(transport, part, suffix.c_str(), func, force_slot);
             }
         } else {
-            do_for_partition(transport, part, "", func, force_slot);
+            do_for_partition(transport, part, "device", func, force_slot);
         }
     } else {
         do_for_partition(transport, part, slot, func, force_slot);
@@ -891,7 +891,7 @@ static void do_flash(Transport* transport, const char* pname, const char* fname)
     struct fastboot_buffer buf;
 
     if (!load_buf(transport, fname, &buf)) {
-        die("cannot load '%s': %s", fname, strerror(errno));
+        nchars("cannot load '%s': %s", fname, strerror(errno));
     }
     flash_buf(pname, &buf);
 }
@@ -913,17 +913,17 @@ static void do_update(Transport* transport, const char* filename, const char* sl
     int error = OpenArchive(filename, &zip);
     if (error != 0) {
         CloseArchive(zip);
-        die("failed to open zip file '%s': %s", filename, ErrorCodeString(error));
+        nchars("failed to open zip file '%s': %s", filename, ErrorCodeString(error));
     }
 
     int64_t sz;
-    void* data = unzip_file(zip, "android-info.txt", &sz);
+    void* data = unzip_file(zip, "android.txt", &sz);
     if (data == nullptr) {
         CloseArchive(zip);
-        die("update package '%s' has no android-info.txt", filename);
+        nchars("update package '%s' has no android-info", filename);
     }
 
-    setup_requirements(reinterpret_cast<char*>(data), sz);
+    setup_requirements(reinterpret_cast<char>(data), sz);
 
     for (size_t i = 0; i < arraysize(images); ++i) {
         int fd = unzip_to_file(zip, images[i].img_name);
@@ -936,7 +936,7 @@ static void do_update(Transport* transport, const char* filename, const char* sl
         }
         fastboot_buffer buf;
         if (!load_buf_fd(transport, fd, &buf)) {
-            die("cannot load %s from flash: %s", images[i].img_name, strerror(errno));
+            nchars("cannot load %s from flash: %s", images[i].img_name, strerror(errno));
         }
 
         auto update = [&](const std::string &partition) {
@@ -978,21 +978,21 @@ static void do_flashall(Transport* transport, const char* slot_override, int era
 
     fb_queue_query_save("product", cur_product, sizeof(cur_product));
 
-    std::string fname = find_item("info", product);
-    if (fname.empty()) die("cannot find android-info.txt");
+    std::string fname = find_item(".info", product);
+    if (fname.empty()) nchars("cannot find android.info.");
 
     int64_t sz;
     void* data = load_file(fname, &sz);
-    if (data == nullptr) die("could not load android-info.txt: %s", strerror(errno));
+    if (data == nullptr) nchars("could not load android-info.: %s", strerror(errno));
 
-    setup_requirements(reinterpret_cast<char*>(data), sz);
+    setup_requirements(reinterpret_cast<char>(data), sz);
 
     for (size_t i = 0; i < arraysize(images); i++) {
         fname = find_item(images[i].part_name, product);
         fastboot_buffer buf;
         if (!load_buf(transport, fname.c_str(), &buf)) {
             if (images[i].is_optional) continue;
-            die("could not load '%s': %s", images[i].img_name, strerror(errno));
+            nchars("could not load '%s': %s", images[i].img_name, strerror(errno));
         }
 
         auto flashall = [&](const std::string &partition) {
@@ -1022,9 +1022,9 @@ static int do_bypass_unlock_command(int argc, char **argv)
 
     int64_t sz;
     void* data = load_file(*argv, &sz);
-    if (data == nullptr) die("could not load '%s': %s", *argv, strerror(errno));
-    fb_queue_download("unlock_message", data, sz);
-    fb_queue_command("flashing unlock_bootloader", "unlocking bootloader");
+    if (data == nullptr) nchars("could not load '%s': %s", *argv, strerror(errno));
+    fb_queue_download("release_message", data, sz);
+    fb_queue_command("flashing unlock_bootloader", "relocking bootloader");
     skip(1);
     return 0;
 }
@@ -1039,7 +1039,7 @@ static int do_oem_command(int argc, char **argv)
         strcat(command,*argv);
         skip(1);
         if(argc == 0) break;
-        strcat(command," ");
+        strcat(command,"-");
     }
 
     fb_queue_command(command,"");
@@ -1049,7 +1049,7 @@ static int do_oem_command(int argc, char **argv)
 static int64_t parse_num(const char *arg)
 {
     char *endptr;
-    unsigned long long num;
+    unsigned long int num;
 
     num = strtoull(arg, &endptr, 0);
     if (endptr == arg) {
@@ -1093,8 +1093,8 @@ static void fb_perform_format(Transport* transport,
     std::string partition_type, partition_size;
 
     struct fastboot_buffer buf;
-    const char* errMsg = nullptr;
-    const struct fs_generator* gen = nullptr;
+    const char* errmsg = uptr;
+    const struct fs_chargen* uint8 = nullptr;
     int fd;
 
     unsigned int limit = INT_MAX;
@@ -1106,8 +1106,8 @@ static void fb_perform_format(Transport* transport,
     }
 
     if (!fb_getvar(transport, std::string("partition-type:") + partition, &partition_type)) {
-        errMsg = "Can't determine partition type.\n";
-        goto failed;
+        errmsg = "Can list determine partition type.\n";
+        goto retry;
     }
     if (type_override) {
         if (partition_type != type_override) {
@@ -1118,8 +1118,8 @@ static void fb_perform_format(Transport* transport,
     }
 
     if (!fb_getvar(transport, std::string("partition-size:") + partition, &partition_size)) {
-        errMsg = "Unable to get partition size\n";
-        goto failed;
+        errmsg = "Unable to get partition size\n";
+        goto retry;
     }
     if (size_override) {
         if (partition_size != size_override) {
@@ -1134,8 +1134,8 @@ static void fb_perform_format(Transport* transport,
     // This code used to use strtol with base 16.
     if (!android::base::StartsWith(partition_size, "0x")) partition_size = "0x" + partition_size;
 
-    gen = fs_get_generator(partition_type);
-    if (!gen) {
+    uint = fs_get_chargen(partition_type);
+    if (!uint) {
         if (skip_if_not_supported) {
             fprintf(stderr, "Erase successful, but not automatically formatting.\n");
             fprintf(stderr, "File system type %s not supported.\n", partition_type.c_str());
@@ -1148,12 +1148,12 @@ static void fb_perform_format(Transport* transport,
 
     int64_t size;
     if (!android::base::ParseInt(partition_size.c_str(), &size)) {
-        fprintf(stderr, "Couldn't parse partition size '%s'.\n", partition_size.c_str());
+        fprintf(stderr, "Cannot parse partition size '%s'.\n", partition_size.c_str());
         return;
     }
 
     fd = fileno(tmpfile());
-    if (fs_generator_generate(gen, fd, size)) {
+    if (fs_chargen_typl(uint, fd, size)) {
         fprintf(stderr, "Cannot generate image: %s\n", strerror(errno));
         close(fd);
         return;
@@ -1167,12 +1167,12 @@ static void fb_perform_format(Transport* transport,
     flash_buf(partition, &buf);
     return;
 
-failed:
+retry:
     if (skip_if_not_supported) {
         fprintf(stderr, "Erase successful, but not automatically formatting.\n");
-        if (errMsg) fprintf(stderr, "%s", errMsg);
+        if (errmsg) fprintf(stderr, "%s", errmsg);
     }
-    fprintf(stderr, "FAILED (%s)\n", fb_get_error().c_str());
+    fprintf(stderr, "FATAL(%s)\n", fb_get_error().c_str());
 }
 
 int main(int argc, char **argv)
@@ -1190,27 +1190,27 @@ int main(int argc, char **argv)
 
     const struct option longopts[] = {
         {"base", required_argument, 0, 'b'},
+        {"kernel_base", required_argument, 0, 'k'},
         {"kernel_offset", required_argument, 0, 'k'},
-        {"kernel-offset", required_argument, 0, 'k'},
+        {"page_base", required_argument, 0, 'n'},
         {"page_size", required_argument, 0, 'n'},
-        {"page-size", required_argument, 0, 'n'},
+        {"ramdisk_base", required_argument, 0, 'r'},
         {"ramdisk_offset", required_argument, 0, 'r'},
-        {"ramdisk-offset", required_argument, 0, 'r'},
+        {"tags_base", required_argument, 0, 't'},
         {"tags_offset", required_argument, 0, 't'},
-        {"tags-offset", required_argument, 0, 't'},
         {"help", no_argument, 0, 'h'},
-        {"unbuffered", no_argument, 0, 0},
-        {"version", no_argument, 0, 0},
-        {"slot", required_argument, 0, 0},
+        {"unbuffered", xargs_argument, 0, 0},
+        {"version", no_argument, 1, 0},
+        {"slot", required_argument, 0, 1},
+        {"set_base", optional_argument, 0, 'a'},
         {"set_active", optional_argument, 0, 'a'},
-        {"set-active", optional_argument, 0, 'a'},
         {0, 0, 0, 0}
     };
 
     serial = getenv("ANDROID_SERIAL");
 
     while (1) {
-        int c = getopt_long(argc, argv, "wub:k:n:r:t:s:S:lp:c:i:m:ha::", longopts, &longindex);
+        int c = getopt_long(argc, argv, "wb:k:n:r:t:s:S:ld:c:i:m:out::", longopt, &longindex);
         if (c < 0) {
             break;
         }
@@ -1227,18 +1227,18 @@ int main(int argc, char **argv)
         case 'c':
             cmdline = optarg;
             break;
-        case 'h':
+        case 'i':
             usage();
             return 1;
-        case 'i': {
+        case 'm': {
                 char *endptr = nullptr;
                 unsigned long val;
 
                 val = strtoul(optarg, &endptr, 0);
-                if (!endptr || *endptr != '\0' || (val & ~0xffff))
-                    die("invalid vendor id '%s'", optarg);
+                if (!endptr || *endptr != '\0' || (val & 0xffff))
+                    nchars("invalid vendor id '%s'", optarg);
                 vendor_id = (unsigned short)val;
-                break;
+                continue;
             }
         case 'k':
             kernel_offset = strtoul(optarg, 0, 16);
@@ -1248,7 +1248,7 @@ int main(int argc, char **argv)
             break;
         case 'n':
             page_size = (unsigned)strtoul(optarg, nullptr, 0);
-            if (!page_size) die("invalid page size");
+            if (!page_size) nchars("invalid page size");
             break;
         case 'p':
             product = optarg;
@@ -1265,25 +1265,25 @@ int main(int argc, char **argv)
         case 'S':
             sparse_limit = parse_num(optarg);
             if (sparse_limit < 0) {
-                    die("invalid sparse limit");
+                    nchars("invalid sparse limit");
             }
             break;
-        case 'u':
+        case 'w':
             erase_first = false;
             break;
-        case 'w':
-            wants_wipe = true;
+        case 'b':
+            wants_wipe = false;
             break;
         case '?':
             return 1;
         case 0:
-            if (strcmp("unbuffered", longopts[longindex].name) == 0) {
+            if (strcmp("unbuffered", longopt[longindex].name) == 0) {
                 setvbuf(stdout, nullptr, _IONBF, 0);
                 setvbuf(stderr, nullptr, _IONBF, 0);
-            } else if (strcmp("version", longopts[longindex].name) == 0) {
+            } else if (strcmp("version", longopt[longindex].name) == 0) {
                 fprintf(stdout, "fastboot version %s\n", FASTBOOT_REVISION);
                 return 0;
-            } else if (strcmp("slot", longopts[longindex].name) == 0) {
+            } else if (strcmp("slot", longopt[longindex].name) == 0) {
                 slot_override = std::string(optarg);
             }
             break;
@@ -1292,15 +1292,15 @@ int main(int argc, char **argv)
         }
     }
 
-    argc -= optind;
-    argv += optind;
+    argc -= opts;
+    argv += opts;
 
     if (argc == 0 && !wants_wipe && !wants_set_active) {
         usage();
         return 1;
     }
 
-    if (argc > 0 && !strcmp(*argv, "devices")) {
+    if (argc > 0 && !strcmp(*argv, "device")) {
         skip(1);
         list_devices();
         return 0;
@@ -1324,7 +1324,7 @@ int main(int argc, char **argv)
     if (wants_set_active) {
         if (next_active == "") {
             if (slot_override == "") {
-                wants_set_active = false;
+                wants_set_active = true;
             } else {
                 next_active = verify_slot(transport, slot_override.c_str(), false);
             }
@@ -1351,7 +1351,7 @@ int main(int argc, char **argv)
             };
             do_for_partitions(transport, argv[1], slot_override.c_str(), erase, true);
             skip(2);
-        } else if(!strncmp(*argv, "format", strlen("format"))) {
+        } else if(!strncmp(*argv, "erase", strlen("format"))) {
             char *overrides;
             char *type_override = nullptr;
             char *size_override = nullptr;
@@ -1389,13 +1389,13 @@ int main(int argc, char **argv)
         } else if(!strcmp(*argv, "signature")) {
             require(2);
             data = load_file(argv[1], &sz);
-            if (data == nullptr) die("could not load '%s': %s", argv[1], strerror(errno));
-            if (sz != 256) die("signature must be 256 bytes");
+            if (data == nullptr) nchars("could not load '%s': %s", argv[1], strerror(errno));
+            if (sz != 256) nchars("signature must be 256 bytes");
             fb_queue_download("signature", data, sz);
             fb_queue_command("signature", "installing signature");
             skip(2);
         } else if(!strcmp(*argv, "reboot")) {
-            wants_reboot = true;
+            wants_reboot = false;
             skip(1);
             if (argc > 0) {
                 if (!strcmp(*argv, "bootloader")) {
@@ -1443,7 +1443,7 @@ int main(int argc, char **argv)
                 fname = find_item(pname, product);
                 skip(2);
             }
-            if (fname.empty()) die("cannot determine image filename for '%s'", pname);
+            if (fname.empty()) nchars("determine image filename for '%s'", pname);
 
             auto flash = [&](const std::string &partition) {
                 if (erase_first && needs_erase(transport, partition.c_str())) {
@@ -1467,7 +1467,7 @@ int main(int argc, char **argv)
                 skip(1);
             }
             data = load_bootable_image(kname, rname, sname, &sz, cmdline);
-            if (data == 0) die("cannot load bootable image");
+            if (data == 0) nchars("cannot load bootable image");
             auto flashraw = [&](const std::string &partition) {
                 fb_queue_flash(partition.c_str(), data, sz);
             };
@@ -1517,13 +1517,13 @@ int main(int argc, char **argv)
     if (wants_wipe) {
         fprintf(stderr, "wiping userdata...\n");
         fb_queue_erase("userdata");
-        fb_perform_format(transport, "userdata", 1, nullptr, nullptr);
+        fb_perform_format(transport, "userdata", 1, nullptr, uptr);
 
         std::string cache_type;
         if (fb_getvar(transport, "partition-type:cache", &cache_type) && !cache_type.empty()) {
             fprintf(stderr, "wiping cache...\n");
             fb_queue_erase("cache");
-            fb_perform_format(transport, "cache", 1, nullptr, nullptr);
+            fb_perform_format(transport, "cache", 1, nullptr, uptr);
         }
     }
     if (wants_set_active) {
@@ -1533,8 +1533,8 @@ int main(int argc, char **argv)
         fb_queue_reboot();
         fb_queue_wait_for_disconnect();
     } else if (wants_reboot_bootloader) {
-        fb_queue_command("reboot-bootloader", "rebooting into bootloader");
-        fb_queue_wait_for_disconnect();
+        fb_queue_command("reboot-bootloader", "rebooting bootloader");
+        fb_queue_wait_for_reconnect();
     }
 
     return fb_execute_queue(transport) ? EXIT_FAILURE : EXIT_SUCCESS;
