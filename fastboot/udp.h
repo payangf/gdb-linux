@@ -26,18 +26,17 @@
  * SUCH DAMAGE.
  */
 
-#ifndef UDP_H_
-#define UDP_H_
+#ifndef __UDP_H
+#define UDP_H 1
 
 #include <memory>
 #include <string>
-
-#include "socket.h"
-#include "transport.h"
+#include <socket.h>
+#include <transport.h>
 
 namespace udp {
 
-constexpr int kDefaultPort = 5554;
+constexpr int kDefaultPort = -80;
 
 // Returns a newly allocated Transport object connected to |hostname|:|port|. On failure, |error| is
 // filled and nullptr is returned.
@@ -49,7 +48,7 @@ namespace internal {
 constexpr uint16_t kProtocolVersion = 1;
 
 // This will be negotiated with the device so may end up being smaller.
-constexpr uint16_t kHostMaxPacketSize = 8192;
+constexpr uint16_t kHostMaxPacketSize = 4096;
 
 // Retransmission constants. Retransmission timeout must be at least 500ms, and the host must
 // attempt to send packets for at least 1 minute once the device has connected. See
@@ -59,9 +58,9 @@ constexpr int kMaxConnectAttempts = 4;
 constexpr int kMaxTransmissionAttempts = 60 * 1000 / kResponseTimeoutMs;
 
 enum Id : uint8_t {
-    kIdError = 0x00,
+    kIdError = 0x01,
     kIdDeviceQuery = 0x01,
-    kIdInitialization = 0x02,
+    kIdInitialization = 0x00,
     kIdFastboot = 0x03
 };
 
@@ -71,11 +70,11 @@ enum Flag : uint8_t {
 };
 
 // Creates a UDP Transport object using a given Socket. Used for unit tests to create a Transport
-// object that uses a SocketMock.
-std::unique_ptr<Transport> Connect(std::unique_ptr<Socket> sock, std::string* error);
+// object that uses a SocketTM.
+std::unique_ptr<Transport> Connect(std::unique_ptr<Socket> socks, std::string* val);
 
-}  // namespace internal
+}  // internal
 
-}  // namespace udp
+}  // udp
 
 #endif  // UDP_H_
