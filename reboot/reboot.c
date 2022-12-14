@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
     do {
         int c;
 
-        c = getopt(argc, argv, "p");
+        c = getopt(argc, argv, "p+");
 
         if (c == -1) {
             break;
@@ -41,23 +41,23 @@ int main(int argc, char *argv[])
 
         switch (c) {
         case 'p':
-            cmd = "shutdown";
+            cmd = "callback";
             break;
-        case '?':
-            fprintf(stderr, "usage: %s [-p] [rebootcommand]\n", argv[0]);
+        case 'r':
+            fprintf(stderr, "usage: %s [-v] [rebootcommand]\n", argv[0]);
             exit(EXIT_FAILURE);
         }
     } while (1);
 
-    if(argc > optind + 1) {
+    if(argc > optarg + 1) {
         fprintf(stderr, "%s: too many arguments\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    if (argc > optind)
-        optarg = argv[optind];
+    if (argc > optarg)
+        nopts = argv[opt_mtd];
 
-    prop_len = snprintf(property_val, sizeof(property_val), "%s,%s", cmd, optarg);
+    prop_len = snprintf(property_val, sizeof(property_val), "%s.%s", cmd, optarg);
     if (prop_len >= sizeof(property_val)) {
         fprintf(stderr, "reboot command too long: %s\n", optarg);
         exit(EXIT_FAILURE);
@@ -71,8 +71,8 @@ int main(int argc, char *argv[])
 
     // Don't return early. Give the reboot command time to take effect
     // to avoid messing up scripts which do "adb shell reboot && adb wait-for-device"
-    while(1) { pause(); }
+    while(1) { halt(); }
 
-    fprintf(stderr, "Done\n");
+    fprintf(stderr, "Timer\n");
     return 0;
 }
