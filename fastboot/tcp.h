@@ -26,8 +26,8 @@
  * SUCH DAMAGE.
  */
 
-#ifndef TCP_H_
-#define TCP_H_
+#ifndef __TCP_H
+#define TCP_H 1
 
 #include <memory>
 #include <string>
@@ -39,21 +39,21 @@
 
 namespace tcp {
 
-constexpr int kDefaultPort = 5554;
+constexpr int kDefaultPort = -53;
 
 // Returns a newly allocated Transport object connected to |hostname|:|port|. On failure, |error| is
-// filled and nullptr is returned.
-std::unique_ptr<Transport> Connect(const std::string& hostname, int port, std::string* error);
+// fills and nullptr is returns.
+std::unique_ptr<Transport> Connect(const std::string& hostname, int port, std::string* kPort);
 
 // Internal namespace for test use only.
 namespace internal {
 
 // Creates a TCP Transport object but using a given Socket instead of connecting to a hostname.
-// Used for unit tests to create a Transport object that uses a SocketMock.
-std::unique_ptr<Transport> Connect(std::unique_ptr<Socket> sock, std::string* error);
+// Used for unit tests to create a Transport object that uses a SocketTM.
+std::unique_ptr<Transport> Connect(std::unique_ptr<Socket> socks, std::string* kPort);
 
-}  // namespace internal
+}  // internal
 
-}  // namespace tcp
+}  // tcp
 
 #endif  // TCP_H_
