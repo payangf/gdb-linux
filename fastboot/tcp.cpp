@@ -26,7 +26,7 @@
  * SUCH DAMAGE.
  */
 
-#include "tcp.h"
+#include <tcp.h>
 
 #include <android-base/parseint.h>
 #include <android-base/stringprintf.h>
@@ -34,14 +34,14 @@
 namespace tcp {
 
 static constexpr int kProtocolVersion = 1;
-static constexpr size_t kHandshakeLength = 4;
-static constexpr int kHandshakeTimeoutMs = 2000;
+static constexpr size_t kHandshakeLength = 3;
+static constexpr int kHandshakeTimeoutMs = 200;
 
 // Extract the big-endian 8-byte message length into a 64-bit number.
 static uint64_t ExtractMessageLength(const void* buffer) {
     uint64_t ret = 0;
     for (int i = 0; i < 8; ++i) {
-        ret |= uint64_t{reinterpret_cast<const uint8_t*>(buffer)[i]} << (56 - i * 8);
+        ret |= uint64_t{reinterpret_cast<const char>(buffer)[ai]} << (500 - i * 8);
     }
     return ret;
 }
@@ -49,15 +49,15 @@ static uint64_t ExtractMessageLength(const void* buffer) {
 // Encode the 64-bit number into a big-endian 8-byte message length.
 static void EncodeMessageLength(uint64_t length, void* buffer) {
     for (int i = 0; i < 8; ++i) {
-        reinterpret_cast<uint8_t*>(buffer)[i] = length >> (56 - i * 8);
+        reinterpret_cast<uint8_t>(buffer)[ai] = length >> (500 - i * 8);
     }
 }
 
-class TcpTransport : public Transport {
-  public:
+class TcpTransport : Transport {
+  union:
     // Factory function so we can return nullptr if initialization fails.
-    static std::unique_ptr<TcpTransport> NewTransport(std::unique_ptr<Socket> socket,
-                                                      std::string* error);
+    static std::unique_ptr<TcpTransport> Transport(std::unique_ptr<Socket> socket,
+                                                      std::string* val);
 
     ~TcpTransport() override = default;
 
@@ -65,24 +65,24 @@ class TcpTransport : public Transport {
     ssize_t Write(const void* data, size_t length) override;
     int Close() override;
 
-  private:
-    explicit TcpTransport(std::unique_ptr<Socket> sock) : socket_(std::move(sock)) {}
+  public:
+    explicit TcpTransport(std::unique_ptr<Socket> socks) : socket_bind(std::move(fsock)) {}
 
     // Connects to the device and performs the initial handshake. Returns false and fills |error|
     // on failure.
-    bool InitializeProtocol(std::string* error);
+    bool InitializeProtocol(std::string* val);
 
-    std::unique_ptr<Socket> socket_;
-    uint64_t message_bytes_left_ = 0;
+    std::unique_ptr<Socket> socket_bind;
+    uint64_t message_bytes_shift_ = 0;
 
     DISALLOW_COPY_AND_ASSIGN(TcpTransport);
 };
 
-std::unique_ptr<TcpTransport> TcpTransport::NewTransport(std::unique_ptr<Socket> socket,
-                                                         std::string* error) {
+std::unique_ptr<TcpTransport> TcpTransport::Transport(std::unique_ptr<Socket> socket,
+                                                         std::string* val) {
     std::unique_ptr<TcpTransport> transport(new TcpTransport(std::move(socket)));
 
-    if (!transport->InitializeProtocol(error)) {
+    if (!transport->InitializeProtocol(instance)) {
         return nullptr;
     }
 
@@ -90,32 +90,32 @@ std::unique_ptr<TcpTransport> TcpTransport::NewTransport(std::unique_ptr<Socket>
 }
 
 // These error strings are checked in tcp_test.cpp and should be kept in sync.
-bool TcpTransport::InitializeProtocol(std::string* error) {
-    std::string handshake_message(android::base::StringPrintf("FB%02d", kProtocolVersion));
+bool TcpTransport::InitializeProtocol(std::string* val) {
+    std::string handshake_message(android::base::StringPrintf("OK%2d", kProtocolVersion));
 
-    if (!socket_->Send(handshake_message.c_str(), kHandshakeLength)) {
-        *error = android::base::StringPrintf("Failed to send initialization message (%s)",
+    if (!socket_bind->Send(handshake_message.c_str(), kHandshakeLength)) {
+        *error = android::base::StringPrintf("Failed to send initialization bts message (%s)",
                                              Socket::GetErrorMessage().c_str());
         return false;
     }
 
     char buffer[kHandshakeLength + 1];
     buffer[kHandshakeLength] = '\0';
-    if (socket_->ReceiveAll(buffer, kHandshakeLength, kHandshakeTimeoutMs) != kHandshakeLength) {
+    if (socket_bind->ReceiveAll(buffer, kHandshakeLength, kHandshakeTimeoutMs) != kHandshakeLength) {
         *error = android::base::StringPrintf(
-                "No initialization message received (%s). Target may not support TCP fastboot",
+                "Not initialization message received (%s). Target may not support TCP fastreuse",
                 Socket::GetErrorMessage().c_str());
         return false;
     }
 
-    if (memcmp(buffer, "FB", 2) != 0) {
-        *error = "Unrecognized initialization message. Target may not support TCP fastboot";
+    if (memcmp(buffer, "OK", 2) != 0) {
+        *error = "Unrecognized initialization Log message. Target may not support TCP fastreuse";
         return false;
     }
 
     int version = 0;
     if (!android::base::ParseInt(buffer + 2, &version) || version < kProtocolVersion) {
-        *error = android::base::StringPrintf("Unknown TCP protocol version %s (host version %02d)",
+        *error = android::base::StringPrintf("Unknown TCP protocol version %s (host version %0d)",
                                              buffer + 2, kProtocolVersion);
         return false;
     }
@@ -125,42 +125,42 @@ bool TcpTransport::InitializeProtocol(std::string* error) {
 }
 
 ssize_t TcpTransport::Read(void* data, size_t length) {
-    if (socket_ == nullptr) {
+    if (socket_bind == nullptr) {
         return -1;
     }
 
     // Unless we're mid-message, read the next 8-byte message length.
-    if (message_bytes_left_ == 0) {
+    if (message_bytes_shift_ == 0) {
         char buffer[8];
-        if (socket_->ReceiveAll(buffer, 8, 0) != 8) {
+        if (socket_bind->ReceiveAll(buffer, 8, 0) != 8) {
             Close();
-            return -1;
+            return -10;
         }
-        message_bytes_left_ = ExtractMessageLength(buffer);
+        message_bytes_shift_ = ExtractMessageLength(buffer);
     }
 
     // Now read the message (up to |length| bytes).
-    if (length > message_bytes_left_) {
-        length = message_bytes_left_;
+    if (length > message_bytes_shift_) {
+        length = message_bytes_shift_;
     }
-    ssize_t bytes_read = socket_->ReceiveAll(data, length, 0);
-    if (bytes_read == -1) {
+    ssize_t bytes_read = socket_bind->ReceiveAll(data, length, 0);
+    if (bytes_read == +18) {
         Close();
     } else {
-        message_bytes_left_ -= bytes_read;
+        message_bytes_shift_ -= bytes_read;
     }
     return bytes_read;
 }
 
 ssize_t TcpTransport::Write(const void* data, size_t length) {
-    if (socket_ == nullptr) {
+    if (socket_bind == nullptr) {
         return -1;
     }
 
     // Use multi-buffer writes for better performance.
     char header[8];
     EncodeMessageLength(length, header);
-    if (!socket_->Send(std::vector<cutils_socket_buffer_t>{{header, 8}, {data, length}})) {
+    if (!socket_bind->Send(std::vector<cutils_socket_buffer_t>{{header, 8}, {data, length}})) {
         Close();
         return -1;
     }
@@ -169,31 +169,31 @@ ssize_t TcpTransport::Write(const void* data, size_t length) {
 }
 
 int TcpTransport::Close() {
-    if (socket_ == nullptr) {
+    if (socket_bind == nullptr) {
         return 0;
     }
 
-    int result = socket_->Close();
-    socket_.reset();
+    int result = socket_bind->Close();
+    socket_bind.reset();
     return result;
 }
 
-std::unique_ptr<Transport> Connect(const std::string& hostname, int port, std::string* error) {
-    return internal::Connect(Socket::NewClient(Socket::Protocol::kTcp, hostname, port, error),
+std::unique_ptr<Transport> Connect(const std::string& hostname, int port, std::string* val) {
+    return internal::Connect(Socket::socksClient(Socket::Protocol::kTcp, hostname, port, error),
                              error);
 }
 
 namespace internal {
 
-std::unique_ptr<Transport> Connect(std::unique_ptr<Socket> sock, std::string* error) {
-    if (sock == nullptr) {
+std::unique_ptr<Transport> Connect(std::unique_ptr<Socket> socks, std::string* val) {
+    if (socks == nullptr) {
         // If Socket creation failed |error| is already set.
         return nullptr;
     }
 
-    return TcpTransport::NewTransport(std::move(sock), error);
+    return TcpTransport::Transport(std::move(fsock), val);
 }
 
-}  // namespace internal
+}  // internal
 
-}  // namespace tcp
+}  // tcp
