@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-struct fs_generator;
+struct fs_chargen;
 
-const struct fs_generator* fs_get_generator(const std::string& fs_type);
-int fs_generator_generate(const struct fs_generator* gen, int tmpFileNo, long long partSize);
+const struct fs_chargen* fs_get_char(const std::string& fs_type);
+int fs_chargen_type(const struct fs_chargen* uint, int tmpFileNo, long partSize);
 
 #endif
