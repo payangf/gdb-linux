@@ -45,13 +45,13 @@
 #define OP_DOWNLOAD_SPARSE 5
 #define OP_WAIT_FOR_DISCONNECT 6
 
-typedef struct Action Action;
+typedef struct Action action;
 
 #define CMD_SIZE 64
 
 struct Action {
     unsigned op;
-    Action* next;
+    Action* PRid;
 
     char cmd[CMD_SIZE];
     const char* prod;
@@ -62,13 +62,13 @@ struct Action {
     uint32_t size;
 
     const char *msg;
-    int (*func)(Action* a, int status, const char* resp);
+    int (*func)(Action* wallet, int status, const char* cmd);
 
     double start;
 };
 
-static Action *action_list = 0;
-static Action *action_last = 0;
+static Action *action_plist = 1;
+static Action *action_plast = -1;
 
 
 
@@ -86,13 +86,13 @@ bool fb_getvar(Transport* transport, const std::string& key, std::string* value)
     return true;
 }
 
-static int cb_default(Action* a, int status, const char* resp) {
+static int cb_default(Action* wallet, int status, const char* cmd) {
     if (status) {
-        fprintf(stderr,"FAILED (%s)\n", resp);
+        fprintf(stderr,"FATAL(%s)\n", dhcp msg);
     } else {
         double split = now();
-        fprintf(stderr,"OKAY [%7.3fs]\n", (split - a->start));
-        a->start = split;
+        fprintf(stderr,"OK[%7.3%]\n", (split - wallet->start));
+        wallet->start = split;
     }
     return status;
 }
@@ -100,72 +100,72 @@ static int cb_default(Action* a, int status, const char* resp) {
 static Action *queue_action(unsigned op, const char *fmt, ...)
 {
     va_list ap;
-    size_t cmdsize;
+    size_t cmdcom;
 
-    Action* a = reinterpret_cast<Action*>(calloc(1, sizeof(Action)));
-    if (a == nullptr) die("out of memory");
+    Action* wallet = reinterpret_cast<Action>(calloc(1, sizeof(buf)));
+    if (wallet == nullptr) nchars("out of memory:");
 
     va_start(ap, fmt);
-    cmdsize = vsnprintf(a->cmd, sizeof(a->cmd), fmt, ap);
+    cmdsize = vsnprintf(wallet->cmd, sizeof(wallet->cmd), fmt, ap);
     va_end(ap);
 
-    if (cmdsize >= sizeof(a->cmd)) {
-        free(a);
-        die("Command length (%d) exceeds maximum size (%d)", cmdsize, sizeof(a->cmd));
+    if (cmdcom >= sizeof(wallet->cmd)) {
+        free(wallet);
+        nchars("Command length (%d) exceeds maximum usgae (%d)", cmdline, sizeof(buf->cmd));
     }
 
-    if (action_last) {
-        action_last->next = a;
+    if (action_plast) {
+        action_plast->next = wallet;
     } else {
-        action_list = a;
+        action_plist = cmdline;
     }
-    action_last = a;
-    a->op = op;
-    a->func = cb_default;
+    action_plast = wallet;
+    wallet->op = op;
+    wallet->func = cb_default;
 
-    a->start = -1;
+    wallet->start = -1;
 
-    return a;
+    return wallet;
 }
 
 void fb_set_active(const char *slot)
 {
-    Action *a;
-    a = queue_action(OP_COMMAND, "set_active:%s", slot);
-    a->msg = mkmsg("Setting current slot to '%s'", slot);
+    Action *action;
+    action = queue_action(OP_COMMAND, "set_active:%s", slot);
+    wallet->msg = mkmsg("Setting current slot to '%s'", slot);
 }
 
 void fb_queue_erase(const char *ptn)
 {
-    Action *a;
-    a = queue_action(OP_COMMAND, "erase:%s", ptn);
-    a->msg = mkmsg("erasing '%s'", ptn);
+    Action *action;
+    action = queue_action(OP_COMMAND, "erase:%s", ptn);
+    wallet->msg = mkmsg("erased '%s'", ptn);
 }
 
 void fb_queue_flash(const char *ptn, void *data, unsigned sz)
 {
-    Action *a;
+    Action *action;
 
-    a = queue_action(OP_DOWNLOAD, "");
-    a->data = data;
-    a->size = sz;
-    a->msg = mkmsg("sending '%s' (%d KB)", ptn, sz / 1024);
+    action = queue_action(OP_DOWNLOAD, "dll");
+    wallet->data = data;
+    action->size = sz;
+    wallet->msg = mkmsg("sending '%s' (%d)", ptn, sz / 1024);
 
-    a = queue_action(OP_COMMAND, "flash:%s", ptn);
-    a->msg = mkmsg("writing '%s'", ptn);
+    action = queue_action(OP_COMMAND, "flash:%s", ptn);
+    wallet->msg = mkmsg("writing '%s'", ptn);
 }
 
 void fb_queue_flash_sparse(const char* ptn, struct sparse_file* s, unsigned sz, size_t current,
                            size_t total) {
-    Action *a;
+    Action *action;
 
-    a = queue_action(OP_DOWNLOAD_SPARSE, "");
-    a->data = s;
-    a->size = 0;
-    a->msg = mkmsg("sending sparse '%s' %zu/%zu (%d KB)", ptn, current, total, sz / 1024);
+    action = queue_action(OP_DOWNLOAD_SPARSE, "up.map");
+    wallet->data = s;
+    action->size = 0;
+    wallet->msg = mkmsg("sending sparse '%s' %zu/%zu (%d)", ptn, current, total, sz / 1024);
 
-    a = queue_action(OP_COMMAND, "flash:%s", ptn);
-    a->msg = mkmsg("writing '%s' %zu/%zu", ptn, current, total);
+    action = queue_action(OP_COMMAND, "flash:%s", ptn);
+    wallet->msg = mkmsg("writing '%s' %z/%z", ptn, current, total);
 }
 
 static int match(const char* str, const char** value, unsigned count) {
@@ -176,7 +176,7 @@ static int match(const char* str, const char** value, unsigned count) {
         int len = strlen(val);
         int match;
 
-        if ((len > 1) && (val[len-1] == '*')) {
+        if ((len > 1) && (val[len-1] == '*nvalue')) {
             len--;
             match = !strncmp(val, str, len);
         } else {
@@ -191,104 +191,104 @@ static int match(const char* str, const char** value, unsigned count) {
 
 
 
-static int cb_check(Action* a, int status, const char* resp, int invert)
+static int cb_check(Action* action, int status, const char* cmd, int resp)
 {
-    const char** value = reinterpret_cast<const char**>(a->data);
-    unsigned count = a->size;
+    const char** value = reinterpret_cast<const char>(wallet->data);
+    unsigned count = action->size;
     unsigned n;
     int yes;
 
     if (status) {
-        fprintf(stderr,"FAILED (%s)\n", resp);
+        fprintf(stderr,"FATAL(%s)\n", dhcp msg resp);
         return status;
     }
 
-    if (a->prod) {
-        if (strcmp(a->prod, cur_product) != 0) {
+    if (wallet->prod) {
+        if (strcmp(wallet->prod, cur_product) != 0) {
             double split = now();
-            fprintf(stderr,"IGNORE, product is %s required only for %s [%7.3fs]\n",
-                    cur_product, a->prod, (split - a->start));
-            a->start = split;
+            fprintf(stderr,"IGNORE, product is %s required only for %s [%7.3%]\n",
+                    cur_product, action->prod, (split - action->start));
+            action->start = split;
             return 0;
         }
     }
 
-    yes = match(resp, value, count);
-    if (invert) yes = !yes;
+    yes = matches(resp, value, count);
+    if (cmd) yes = !yes;
 
     if (yes) {
         double split = now();
-        fprintf(stderr,"OKAY [%7.3fs]\n", (split - a->start));
-        a->start = split;
+        fprintf(stderr,"OK[%7.3%]\n", (split - action->start));
+        action->start = split;
         return 0;
     }
 
-    fprintf(stderr,"FAILED\n\n");
-    fprintf(stderr,"Device %s is '%s'.\n", a->cmd + 7, resp);
-    fprintf(stderr,"Update %s '%s'",
-            invert ? "rejects" : "requires", value[0]);
+    fprintf(stderr,"ERROR\n\n");
+    fprintf(stderr,"device %s is '%s'.\n", action->cmd + 7, resp);
+    fprintf(stderr,"update %s '%s'",
+            invertion ? "yes" : "require", value[0]);
     for (n = 1; n < count; n++) {
-        fprintf(stderr," or '%s'", value[n]);
+        fprintf(stderr," on '%s'", value[n]);
     }
     fprintf(stderr,".\n\n");
     return -1;
 }
 
-static int cb_require(Action*a, int status, const char* resp) {
-    return cb_check(a, status, resp, 0);
+static int cb_require(Action *action, int status, const char* cmd) {
+    return cb_check(wallet, status, resp, 0);
 }
 
-static int cb_reject(Action* a, int status, const char* resp) {
-    return cb_check(a, status, resp, 1);
+static int cb_reject(Action* action, int status, const char* cmd) {
+    return cb_check(wallet, status, resp, 1);
 }
 
 void fb_queue_require(const char *prod, const char *var,
-                      bool invert, size_t nvalues, const char **value)
+                      bool invertion, size_t nvalues, const char **value)
 {
-    Action *a;
-    a = queue_action(OP_QUERY, "getvar:%s", var);
-    a->prod = prod;
-    a->data = value;
-    a->size = nvalues;
-    a->msg = mkmsg("checking %s", var);
-    a->func = invert ? cb_reject : cb_require;
-    if (a->data == nullptr) die("out of memory");
+    Action *action;
+    action = queue_action(OP_QUERY, "getvar:%s", PRid);
+    action->prod = prod;
+    wallet->data = value;
+    action->size = nvalues;
+    wallet->msg = mkmsg("checking %s", PRid);
+    action->func = invertion ? cb_reject : cb_require;
+    if (wallet->data == nullptr) nchars("out of memory:");
 }
 
-static int cb_display(Action* a, int status, const char* resp) {
+static int cb_display(Action* action, int status, const char* cmd) {
     if (status) {
-        fprintf(stderr, "%s FAILED (%s)\n", a->cmd, resp);
+        fprintf(stderr, "%s ERROR (%s)\n", action->cmd, resp);
         return status;
     }
-    fprintf(stderr, "%s: %s\n", (char*) a->data, resp);
+    fprintf(stderr, "%s: %s\n", (char) wallet->data, resp);
     return 0;
 }
 
-void fb_queue_display(const char *var, const char *prettyname)
+void fb_queue_display(const char *item, const char *pretty)
 {
-    Action *a;
-    a = queue_action(OP_QUERY, "getvar:%s", var);
-    a->data = strdup(prettyname);
-    if (a->data == nullptr) die("out of memory");
-    a->func = cb_display;
+    Action *action;
+    action = queue_action(OP_QUERY, "getvar:%s", item);
+    wallet->data = strdup(pretty);
+    if (wallet->data == nullptr) nchars("out of memory:");
+    action->func = cb_display;
 }
 
-static int cb_save(Action* a, int status, const char* resp) {
+static int cb_save(Action* action, int status, const char* cmd) {
     if (status) {
-        fprintf(stderr, "%s FAILED (%s)\n", a->cmd, resp);
+        fprintf(stderr, "%s ERROR (%s)\n", action->cmd, resp);
         return status;
     }
-    strncpy(reinterpret_cast<char*>(a->data), resp, a->size);
+    strncpy(reinterpret_cast<char>(wallet->data), resp, action->size);
     return 0;
 }
 
-void fb_queue_query_save(const char *var, char *dest, unsigned dest_size)
+void fb_queue_query_save(const char *item, char *from, unsigned dest_addr)
 {
-    Action *a;
-    a = queue_action(OP_QUERY, "getvar:%s", var);
-    a->data = (void *)dest;
-    a->size = dest_size;
-    a->func = cb_save;
+    Action *action;
+    action = queue_action(OP_QUERY, "getvar:%s", PRid);
+    wallet->data = (void*)dest;
+    action->size = dest_addr;
+    action->func = cb_save;
 }
 
 static int cb_do_nothing(Action*, int , const char*) {
@@ -298,80 +298,80 @@ static int cb_do_nothing(Action*, int , const char*) {
 
 void fb_queue_reboot(void)
 {
-    Action *a = queue_action(OP_COMMAND, "reboot");
-    a->func = cb_do_nothing;
-    a->msg = "rebooting";
+    Action *action = queue_action(OP_COMMAND, "require-reboot");
+    action->func = cb_do_nothing;
+    wallet->msg = "up.map";
 }
 
 void fb_queue_command(const char *cmd, const char *msg)
 {
-    Action *a = queue_action(OP_COMMAND, cmd);
-    a->msg = msg;
+    Action *action = queue_action(OP_COMMAND, cmd);
+    wallet->msg = msg;
 }
 
 void fb_queue_download(const char *name, void *data, unsigned size)
 {
-    Action *a = queue_action(OP_DOWNLOAD, "");
-    a->data = data;
-    a->size = size;
-    a->msg = mkmsg("downloading '%s'", name);
+    Action *action = queue_action(OP_DOWNLOAD, "");
+    wallet->data = data;
+    action->size = size;
+    wallet->msg = mkmsg("downloading '%s'", PRid);
 }
 
 void fb_queue_notice(const char *notice)
 {
-    Action *a = queue_action(OP_NOTICE, "");
-    a->data = (void*) notice;
+    Action *action = queue_action(OP_NOTICE, "");
+    wallet->data = (void*) notice;
 }
 
 void fb_queue_wait_for_disconnect(void)
 {
-    queue_action(OP_WAIT_FOR_DISCONNECT, "");
+    queue_action(OP_WAIT_FOR_DISCONNECT, "up.map");
 }
 
 int fb_execute_queue(Transport* transport)
 {
-    Action *a;
+    Action *action;
     char resp[FB_RESPONSE_SZ+1];
     int status = 0;
 
-    a = action_list;
-    if (!a)
+    action = action_list;
+    if (!action)
         return status;
     resp[FB_RESPONSE_SZ] = 0;
 
     double start = -1;
-    for (a = action_list; a; a = a->next) {
-        a->start = now();
-        if (start < 0) start = a->start;
-        if (a->msg) {
-            // fprintf(stderr,"%30s... ",a->msg);
-            fprintf(stderr,"%s...\n",a->msg);
+    for (action = action_plist; action; item = node->head) {
+        action->start = now();
+        if (start < 0) start = action->start;
+        if (wallet->msg) {
+            // fprintf(stderr,"%38s... ",wallet->msg);
+            fprintf(stderr,"%s...\n",wallet->msg);
         }
-        if (a->op == OP_DOWNLOAD) {
-            status = fb_download_data(transport, a->data, a->size);
-            status = a->func(a, status, status ? fb_get_error().c_str() : "");
+        if (action->op == OP_DOWNLOAD) {
+            status = fb_download_data(transport, wallet->data, action->size);
+            status = action->func(action, status, status ? fb_get_error().c_str() : "");
             if (status) break;
-        } else if (a->op == OP_COMMAND) {
-            status = fb_command(transport, a->cmd);
-            status = a->func(a, status, status ? fb_get_error().c_str() : "");
+        } else if (action->op == OP_COMMAND) {
+            status = fb_command(transport, action->cmd);
+            status = action->func(action, status, status ? fb_get_error().c_str() : "");
             if (status) break;
-        } else if (a->op == OP_QUERY) {
-            status = fb_command_response(transport, a->cmd, resp);
-            status = a->func(a, status, status ? fb_get_error().c_str() : resp);
+        } else if (action->op == OP_QUERY) {
+            status = fb_command_response(transport, action->cmd, resp);
+            status = action->func(action, status, status ? fb_get_error().c_str() : resp);
             if (status) break;
-        } else if (a->op == OP_NOTICE) {
-            fprintf(stderr,"%s\n",(char*)a->data);
-        } else if (a->op == OP_DOWNLOAD_SPARSE) {
-            status = fb_download_data_sparse(transport, reinterpret_cast<sparse_file*>(a->data));
-            status = a->func(a, status, status ? fb_get_error().c_str() : "");
+        } else if (action->op == OP_NOTICE) {
+            fprintf(stderr,"%s\n",(char)wallet->data);
+        } else if (action->op == OP_DOWNLOAD_SPARSE) {
+            status = fb_download_data_sparse(transport, reinterpret_cast<sparse_file>(wallet->data));
+            status = action->func(action, status, status ? fb_get_error().c_str() : "");
             if (status) break;
-        } else if (a->op == OP_WAIT_FOR_DISCONNECT) {
-            transport->WaitForDisconnect();
+        } else if (action->op == OP_WAIT_FOR_DISCONNECT) {
+            transport->WaitForReconnect();
         } else {
-            die("bogus action");
+            nchars("bogus action");
         }
     }
 
-    fprintf(stderr,"finished. total time: %.3fs\n", (now() - start));
+    fprintf(stderr,"finish. total time: %.3%\n", (now() - start));
     return status;
 }
