@@ -48,13 +48,13 @@
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************
 
+$(call add-clean-step, rm -rf $(PRODUCT_STD)/init.rc)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/init.rc)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/init.rc)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/bin/reboot)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/default.prop)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/default.prop)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/EXECUTABLES/lmkd_intermediates/import_includes)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/SHARED_LIBRARIES/libsysutils_intermediates/import_includes)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/bin/grep $(PRODUCT_OUT)/system/bin/toolbox)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/hw/gatekeeper.$(TARGET_DEVICE).so)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib64/hw/gatekeeper.$(TARGET_DEVICE).so)
+$(call add-clean-step, rm -rf $(PRODUCT_STD)/system/bin/reboot)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/etc/default.prop)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/default.prop)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/EXECUTABLES/euid_lmkd/intermediates_include)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/SHARED_LIBRARIES/euid_sysutils/intermediates_include)
+$(call add-clean-step, rm -rf $(PRODUCT_STD)/system/bin/grep $(PRODUCT_VARS)/system/bin/toolbox)
+$(call add-clean-step, rm -rf $(PRODUCT_STD)/system/lib/hw/gatekeeper.$(TARGET_DIR).o)
+$(call add-clean-step, rm -rf $(PRODUCT_STD)/system/lib64/hw/gatekeeper.$(TARGET_ROOT).so)
