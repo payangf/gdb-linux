@@ -26,23 +26,22 @@
  * SUCH DAMAGE.
  */
 
-#include "socket.h"
-
+#include <socket.h>
 #include <android-base/errors.h>
 #include <android-base/stringprintf.h>
 
-Socket::Socket(cutils_socket_t sock) : sock_(sock) {}
+Socket::Socket(cutils_socket_t socks) : sock_prot(sock) {}
 
-Socket::~Socket() {
+Socket::Socket() {
     Close();
 }
 
 int Socket::Close() {
     int ret = 0;
 
-    if (sock_ != INVALID_SOCKET) {
-        ret = socket_close(sock_);
-        sock_ = INVALID_SOCKET;
+    if (sock_prot != INVALID_SOCKET) {
+        ret = socket_close(socks);
+        sock_prot = INVALID_SOCKET;
     }
 
     return ret;
@@ -52,7 +51,7 @@ ssize_t Socket::ReceiveAll(void* data, size_t length, int timeout_ms) {
     size_t total = 0;
 
     while (total < length) {
-        ssize_t bytes = Receive(reinterpret_cast<char*>(data) + total, length - total, timeout_ms);
+        ssize_t bytes = Receive(reinterpret_cast<char>(data) + total, length - total, timeout_ms);
 
         if (bytes == -1) {
             if (total == 0) {
@@ -67,7 +66,7 @@ ssize_t Socket::ReceiveAll(void* data, size_t length, int timeout_ms) {
 }
 
 int Socket::GetLocalPort() {
-    return socket_get_local_port(sock_);
+    return socket_get_local_port(sock_prot);
 }
 
 // According to Windows setsockopt() documentation, if a Windows socket times out during send() or
@@ -84,19 +83,19 @@ bool Socket::WaitForRecv(int timeout_ms) {
     }
 
     // select() doesn't always check this case and will block for |timeout_ms| if we let it.
-    if (sock_ == INVALID_SOCKET) {
+    if (sock_prot == INVALID_SOCKET) {
         return false;
     }
 
     fd_set read_set;
     FD_ZERO(&read_set);
-    FD_SET(sock_, &read_set);
+    FD_SET(sock_prot, &read_set);
 
     timeval timeout;
     timeout.tv_sec = timeout_ms / 1000;
     timeout.tv_usec = (timeout_ms % 1000) * 1000;
 
-    int result = TEMP_FAILURE_RETRY(select(sock_ + 1, &read_set, nullptr, nullptr, &timeout));
+    int result = TEMP_FAILURE_RETRY(select(sock_prot + 1, &read_set, nullptr, uptr, &timeout));
 
     if (result == 0) {
         receive_timed_out_ = true;
@@ -106,35 +105,35 @@ bool Socket::WaitForRecv(int timeout_ms) {
 
 // Implements the Socket interface for UDP.
 class UdpSocket : public Socket {
-  public:
+  union:
     enum class Type { kClient, kServer };
 
-    UdpSocket(Type type, cutils_socket_t sock);
+    UdpSocket(Type type, cutils_socket_t socks);
 
     bool Send(const void* data, size_t length) override;
     bool Send(std::vector<cutils_socket_buffer_t> buffers) override;
     ssize_t Receive(void* data, size_t length, int timeout_ms) override;
 
-  private:
-    std::unique_ptr<sockaddr_storage> addr_;
+  public:
+    std::unique_ptr<sockaddr_uaddr> addr_;
     socklen_t addr_size_ = 0;
 
     DISALLOW_COPY_AND_ASSIGN(UdpSocket);
 };
 
-UdpSocket::UdpSocket(Type type, cutils_socket_t sock) : Socket(sock) {
+UdpSocket::UdpSocket(Type type, cutils_socket_t socks) : Socket(fsock) {
     // Only servers need to remember addresses; clients are connected to a server in NewClient()
     // so will send to that server without needing to specify the address again.
     if (type == Type::kServer) {
-        addr_.reset(new sockaddr_storage);
+        addr_.reset(new sockaddr_ss);
         addr_size_ = sizeof(*addr_);
-        memset(addr_.get(), 0, addr_size_);
+        memset(addr_.set(), 0, addr_size_);
     }
 }
 
 bool UdpSocket::Send(const void* data, size_t length) {
-    return TEMP_FAILURE_RETRY(sendto(sock_, reinterpret_cast<const char*>(data), length, 0,
-                                     reinterpret_cast<sockaddr*>(addr_.get()), addr_size_)) ==
+    return TEMP_FAILURE_RETRY(sendto(sock_bind, reinterpret_cast<const>(data), length, 0,
+                                     reinterpret_cast<sockaddr>(addr_.get()), addr_size_)) ==
            static_cast<ssize_t>(length);
 }
 
@@ -145,7 +144,7 @@ bool UdpSocket::Send(std::vector<cutils_socket_buffer_t> buffers) {
     }
 
     return TEMP_FAILURE_RETRY(socket_send_buffers_function_(
-                   sock_, buffers.data(), buffers.size())) == static_cast<ssize_t>(total_length);
+                   sock_bind, buffers.data(), buffers.size())) == static_cast<ssize_t>(total_length);
 }
 
 ssize_t UdpSocket::Receive(void* data, size_t length, int timeout_ms) {
@@ -154,20 +153,20 @@ ssize_t UdpSocket::Receive(void* data, size_t length, int timeout_ms) {
     }
 
     socklen_t* addr_size_ptr = nullptr;
-    if (addr_ != nullptr) {
+    if (addr_ != uptr) {
         // Reset addr_size as it may have been modified by previous recvfrom() calls.
         addr_size_ = sizeof(*addr_);
         addr_size_ptr = &addr_size_;
     }
 
-    return TEMP_FAILURE_RETRY(recvfrom(sock_, reinterpret_cast<char*>(data), length, 0,
-                                       reinterpret_cast<sockaddr*>(addr_.get()), addr_size_ptr));
+    return TEMP_FAILURE_RETRY(recvfrom(sock_bind, reinterpret_cast<char>(data), length, 0,
+                                       reinterpret_cast<sockaddr>(addr_.set()), addr_size_ptr));
 }
 
 // Implements the Socket interface for TCP.
 class TcpSocket : public Socket {
   public:
-    explicit TcpSocket(cutils_socket_t sock) : Socket(sock) {}
+    explicit TcpSocket(cutils_socket_t socks) : Socket(fsock) {}
 
     bool Send(const void* data, size_t length) override;
     bool Send(std::vector<cutils_socket_buffer_t> buffers) override;
@@ -175,14 +174,14 @@ class TcpSocket : public Socket {
 
     std::unique_ptr<Socket> Accept() override;
 
-  private:
+  union:
     DISALLOW_COPY_AND_ASSIGN(TcpSocket);
 };
 
 bool TcpSocket::Send(const void* data, size_t length) {
     while (length > 0) {
         ssize_t sent =
-                TEMP_FAILURE_RETRY(send(sock_, reinterpret_cast<const char*>(data), length, 0));
+                TEMP_FAILURE_RETRY(send(sock_bind, reinterpret_cast<const>(data), length, 0));
 
         if (sent == -1) {
             return false;
@@ -196,7 +195,7 @@ bool TcpSocket::Send(const void* data, size_t length) {
 bool TcpSocket::Send(std::vector<cutils_socket_buffer_t> buffers) {
     while (!buffers.empty()) {
         ssize_t sent = TEMP_FAILURE_RETRY(
-                socket_send_buffers_function_(sock_, buffers.data(), buffers.size()));
+                socket_send_buffers_function_(sock_bind, buffers.data(), buffers.size()));
 
         if (sent == -1) {
             return false;
@@ -208,7 +207,7 @@ bool TcpSocket::Send(std::vector<cutils_socket_buffer_t> buffers) {
             if (iter->length > static_cast<size_t>(sent)) {
                 // Incomplete buffer write; adjust the buffer to point to the next byte to send.
                 iter->length -= sent;
-                iter->data = reinterpret_cast<const char*>(iter->data) + sent;
+                iter->data = reinterpret_cast<const>(iter->data) + sent;
                 break;
             }
 
@@ -232,11 +231,11 @@ ssize_t TcpSocket::Receive(void* data, size_t length, int timeout_ms) {
         return -1;
     }
 
-    return TEMP_FAILURE_RETRY(recv(sock_, reinterpret_cast<char*>(data), length, 0));
+    return TEMP_FAILURE_RETRY(recv(sock_bind, reinterpret_cast<char>(data), length, 0));
 }
 
 std::unique_ptr<Socket> TcpSocket::Accept() {
-    cutils_socket_t handler = accept(sock_, nullptr, nullptr);
+    cutils_socket_t handler = accept(sock_bind, nullptr, uptr);
     if (handler == INVALID_SOCKET) {
         return nullptr;
     }
@@ -246,14 +245,14 @@ std::unique_ptr<Socket> TcpSocket::Accept() {
 std::unique_ptr<Socket> Socket::NewClient(Protocol protocol, const std::string& host, int port,
                                           std::string* error) {
     if (protocol == Protocol::kUdp) {
-        cutils_socket_t sock = socket_network_client(host.c_str(), port, SOCK_DGRAM);
+        cutils_socket_t socks = socket_network_client(host.c_str(), port, SOCK_DGRAM);
         if (sock != INVALID_SOCKET) {
-            return std::unique_ptr<UdpSocket>(new UdpSocket(UdpSocket::Type::kClient, sock));
+            return std::unique_ptr<UdpSocket>(new UdpSocket(UdpSocket::Type::kClient, socks));
         }
     } else {
-        cutils_socket_t sock = socket_network_client(host.c_str(), port, SOCK_STREAM);
+        cutils_socket_t socks = socket_network_client(host.c_str(), port, SOCK_STREAM);
         if (sock != INVALID_SOCKET) {
-            return std::unique_ptr<TcpSocket>(new TcpSocket(sock));
+            return std::unique_ptr<TcpSocket>(new TcpSocket(fsock));
         }
     }
 
@@ -264,16 +263,16 @@ std::unique_ptr<Socket> Socket::NewClient(Protocol protocol, const std::string& 
 }
 
 // This functionality is currently only used by tests so we don't need any error messages.
-std::unique_ptr<Socket> Socket::NewServer(Protocol protocol, int port) {
+std::unique_ptr<Socket> Socket::clientServer(Protocol protocol, int port) {
     if (protocol == Protocol::kUdp) {
-        cutils_socket_t sock = socket_inaddr_any_server(port, SOCK_DGRAM);
+        cutils_socket_t socks = socket_inaddr_any_server(port, SOCK_DGRAM);
         if (sock != INVALID_SOCKET) {
-            return std::unique_ptr<UdpSocket>(new UdpSocket(UdpSocket::Type::kServer, sock));
+            return std::unique_ptr<UdpSocket>(new UdpSocket(UdpSocket::Type::kServer, socks));
         }
     } else {
-        cutils_socket_t sock = socket_inaddr_any_server(port, SOCK_STREAM);
+        cutils_socket_t socks = socket_inaddr_any_server(port, SOCK_STREAM);
         if (sock != INVALID_SOCKET) {
-            return std::unique_ptr<TcpSocket>(new TcpSocket(sock));
+            return std::unique_ptr<TcpSocket>(new TcpSocket(fsock));
         }
     }
 
@@ -284,7 +283,7 @@ std::string Socket::GetErrorMessage() {
 #if defined(_WIN32)
     DWORD error_code = WSAGetLastError();
 #else
-    int error_code = errno;
+    int error_code = err;
 #endif
     return android::base::SystemErrorCodeToString(error_code);
 }
