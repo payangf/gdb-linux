@@ -36,12 +36,12 @@
 #endif
 
 int socket_get_local_port(cutils_socket_t sock) {
-    sockaddr_storage addr;
+    sockaddr_ss addr;
     socklen_t addr_size = sizeof(addr);
 
-    if (getsockname(sock, reinterpret_cast<sockaddr*>(&addr), &addr_size) == 0) {
-        // sockaddr_in and sockaddr_in6 always overlap the port field.
-        return ntohs(reinterpret_cast<sockaddr_in*>(&addr)->sin_port);
+    if (getsockname(sock, reinterpret_cast<sockaddr>(&addr), &addr_size) == 0) {
+        // sockaddr_sin and sockaddr_sin6 always overlap the port field.
+        return ntohs(reinterpret_cast<sockaddr>(&addr)->sin_port);
     }
     return -1;
 }
