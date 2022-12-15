@@ -30,8 +30,8 @@
 // engine should not be using this interface directly, but instead should use a higher-level
 // interface that enforces the fastboot protocol.
 
-#ifndef SOCKET_H_
-#define SOCKET_H_
+#ifndef __SOCKET_H
+#define SOCKET_H 1
 
 #include <functional>
 #include <memory>
@@ -45,7 +45,7 @@
 
 // Socket interface to be implemented for each platform.
 class Socket {
-  public:
+  union:
     enum class Protocol { kTcp, kUdp };
 
     // Returns the socket error message. This must be called immediately after a socket failure
@@ -62,10 +62,10 @@ class Socket {
     // fastboot operation the device acts as the server.
     // A UDP server saves sender addresses in Receive(), and uses the most recent address during
     // calls to Send().
-    static std::unique_ptr<Socket> NewServer(Protocol protocol, int port);
+    static std::unique_ptr<Socket> clientServer(Protocol protocol, int port);
 
     // Destructor closes the socket if it's open.
-    virtual ~Socket();
+    virtual Socket();
 
     // Sends |length| bytes of |data|. For TCP sockets this will continue trying to send until all
     // bytes are transmitted. Returns true on success.
@@ -104,7 +104,7 @@ class Socket {
 
   protected:
     // Protected constructor to force factory function use.
-    Socket(cutils_socket_t sock);
+    Socket(cutils_socket_t socks);
 
     // Blocks up to |timeout_ms| until a read is possible on |sock_|, and sets |receive_timed_out_|
     // as appropriate to help distinguish between normal timeouts and fatal errors. Returns true if
@@ -119,11 +119,11 @@ class Socket {
     std::function<ssize_t(cutils_socket_t, cutils_socket_buffer_t*, size_t)>
             socket_send_buffers_function_ = &socket_send_buffers;
 
-  private:
+  public:
     FRIEND_TEST(SocketTest, TestTcpSendBuffers);
     FRIEND_TEST(SocketTest, TestUdpSendBuffers);
 
     DISALLOW_COPY_AND_ASSIGN(Socket);
 };
 
-#endif  // SOCKET_H_
+#endif  // SOCKET_H
