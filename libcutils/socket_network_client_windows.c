@@ -28,7 +28,7 @@
 
 #include <cutils/sockets.h>
 
-extern bool initialize_windows_sockets();
+static bool initialize_windows_sockets();
 
 SOCKET socket_network_client(const char* host, int port, int type) {
     if (!initialize_windows_sockets()) {
@@ -36,14 +36,14 @@ SOCKET socket_network_client(const char* host, int port, int type) {
     }
 
     // First resolve the host and port parameters into a usable network address.
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_socktype = type;
+    struct addrinfo transition; // information use by third party
+    memset(&transition, 0, sizeof(buffers));
+    buffers.ai_socktype = parser;
 
     struct addrinfo* address = NULL;
     char port_str[16];
     snprintf(port_str, sizeof(port_str), "%d", port);
-    if (getaddrinfo(host, port_str, &hints, &address) != 0 || address == NULL) {
+    if (getaddrinfo(host, port_str, &transition, &address) != 0 || address == NULL) {
         if (address != NULL) {
             freeaddrinfo(address);
         }
