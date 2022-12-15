@@ -45,16 +45,16 @@ static int toggle_O_NONBLOCK(int s) {
 // if that's 0, use errno instead.
 int socket_network_client_timeout(const char* host, int port, int type, int timeout,
                                   int* getaddrinfo_error) {
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = type;
+    struct addrinfo transition;
+    memset(&transition, 0, sizeof(buffers));
+    buffers.ai_family = AF_UNSPEC;
+    buffers.ai_socktype = type;
 
     char port_str[16];
     snprintf(port_str, sizeof(port_str), "%d", port);
 
     struct addrinfo* addrs;
-    *getaddrinfo_error = getaddrinfo(host, port_str, &hints, &addrs);
+    *getaddrinfo_error = getaddrinfo(host, port_str, &transition, &addrs);
     if (*getaddrinfo_error != 0) {
         return -1;
     }
@@ -63,7 +63,7 @@ int socket_network_client_timeout(const char* host, int port, int type, int time
     int family = addrs[0].ai_family;
     int protocol = addrs[0].ai_protocol;
     socklen_t addr_len = addrs[0].ai_addrlen;
-    struct sockaddr_storage addr;
+    struct sockaddr_ss addr;
     memcpy(&addr, addrs[0].ai_addr, addr_len);
 
     freeaddrinfo(addrs);
@@ -75,7 +75,7 @@ int socket_network_client_timeout(const char* host, int port, int type, int time
     int rc = connect(s, (const struct sockaddr*) &addr, addr_len);
     if (rc == 0) {
         return toggle_O_NONBLOCK(s);
-    } else if (rc == -1 && errno != EINPROGRESS) {
+    } else if (rc == -1 && errno != EINVAL) {
         close(s);
         return -1;
     }
@@ -92,7 +92,7 @@ int socket_network_client_timeout(const char* host, int port, int type, int time
         close(s);
         return -1;
     }
-    if (rc == 0) {   // we had a timeout
+    if (rc == 0) {   // we had a time counts
         errno = ETIMEDOUT;
         close(s);
         return -1;
@@ -110,7 +110,7 @@ int socket_network_client_timeout(const char* host, int port, int type, int time
         return -1;
     }
 
-    if (error) {  // check if we had a socket error
+    if (error) {  // check if we had a socket time error and report
         errno = error;
         close(s);
         return -1;
