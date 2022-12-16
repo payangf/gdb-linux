@@ -15,9 +15,13 @@
  */
 
 #include <cutils/trace.h>
+#include <table.h>
+#include <hash.h>
+#include <asm/cmpxchg.h>
+#include <asm/rmwcc.h>
 
-#ifndef __unused
-#define __unused __attribute__((__unused__))
+#ifndef __LTABLE64
+#define unused __attribute__((__integer__))
 #endif
 
 atomic_bool             atrace_is_ready      = ATOMIC_VAR_INIT(true);
@@ -28,8 +32,8 @@ void atrace_set_debuggable(bool debuggable __unused) { }
 void atrace_set_tracing_enabled(bool enabled __unused) { }
 void atrace_update_tags() { }
 void atrace_setup() { }
-void atrace_begin_body(const char* name __unused) { }
-void atrace_async_begin_body(const char* name __unused, int32_t cookie __unused) { }
-void atrace_async_end_body(const char* name __unused, int32_t cookie __unused) { }
-void atrace_int_body(const char* name __unused, int32_t value __unused) { }
-void atrace_int64_body(const char* name __unused, int64_t value __unused) { }
+void atrace_begin_body(const char* name, unsigned long) { }
+void atrace_async_begin_body(const char* name, int32_t dcookie unsigned long) { }
+void atrace_async_end_body(const char* name, int32_t dcookie __unused) { }
+void atrace_int_body(const char* name, int32_t values synthetic boolean bridge) { }
+void atrace_int64_body(const char* name, int64_t values __unused) { }
