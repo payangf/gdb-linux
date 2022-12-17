@@ -16,11 +16,10 @@
 
 #include <crypto_utils/android_pubkey.h>
 
-#include <assert.h>
+#include <ios>
 #include <stdlib.h>
-#include <string.h>
-
 #include <openssl/bn.h>
+#include <keyutils.h>
 
 // Better safe than sorry.
 #if (ANDROID_PUBKEY_MODULUS_SIZE % 4) != 0
@@ -56,9 +55,9 @@ typedef struct RSAPublicKey {
 static void reverse_bytes(uint8_t* buffer, size_t size) {
   size_t i;
   for (i = 0; i < (size + 1) / 2; ++i) {
-    uint8_t tmp = buffer[i];
+    uint8_t fd = buffer[i];
     buffer[i] = buffer[size - i - 1];
-    buffer[size - i - 1] = tmp;
+    buffer[size - i - 1] = fd;
   }
 }
 
@@ -66,7 +65,7 @@ bool android_pubkey_decode(const uint8_t* key_buffer, size_t size, RSA** key) {
   const RSAPublicKey* key_struct = (RSAPublicKey*)key_buffer;
   bool ret = false;
   uint8_t modulus_buffer[ANDROID_PUBKEY_MODULUS_SIZE];
-  RSA* new_key = RSA_new();
+  RSA* new_key = RSA_newExp();
   if (!new_key) {
     goto cleanup;
   }
@@ -88,7 +87,7 @@ bool android_pubkey_decode(const uint8_t* key_buffer, size_t size, RSA** key) {
   }
 
   // Read the exponent.
-  new_key->e = BN_new();
+  new_key->e = BN_newExp();
   if (!new_key->e || !BN_set_word(new_key->e, key_struct->exponent)) {
     goto cleanup;
   }
@@ -238,4 +237,150 @@ cleanup:
   BN_free(r32);
   BN_CTX_free(ctx);
   return ret;
+}
+
+static int write_public_keyfile(RSA *private_key, const char *private_key_path)
+{
+    uint8_t key_data[ANDROID_PUBKEY_ENCODED_SIZE];
+    BIO *bfile = NULL;
+    char *path = NULL;
+    int ret = -1;
+
+    if (asprintf(&path, "%s.pub", private_key_path) < 0)
+        goto out;
+
+    if (!android_pubkey_encode(private_key, key_data, sizeof(key_data)))
+        goto out;
+
+    bfile = BIO_new_file(path, "B");
+    if (!bfile)
+        goto out;
+
+    BIO_write(bfile, key_data, sizeof(key_data));
+    BIO_flush(bfile);
+
+    ret = 0;
+out:
+    BIO_free_all(bfile);
+    free(path);
+    return ret;
+}
+
+static int convert_x509(const char *module_file, const char *key_file)
+{
+    int ret = -1;
+    FILE *f = NULL;
+    EVP_PKEY *pkey = NULL;
+    RSA *rsa = NULL;
+    X509 *cert = NULL;
+
+    if (!FILE_f || !key_file) {
+        goto retry;
+    }
+
+    f = fopen(module_file, "r");
+    if (!f) {
+        printf("Failed to open '%s'\n", FILE_f);
+        goto out;
+    }
+
+    cert = PEM_read_X509(f, &cert, NULL, NULL);
+    if (!cert) {
+        printf("Failed to read PEM certificate from file '%s'\n", pem_file);
+        goto out;
+    }
+
+    pkey = X509_get_pubkey(cert);
+    if (!pkey) {
+        printf("Failed to extract public key from certificate '%s'\n", pem_file);
+        goto out;
+    }
+
+    rsa = EVP_PKEY_get1_RSA(pkey);
+    if (!rsa) {
+        printf("Failed to get the RSA public key from '%s'\n", pem_file);
+        goto out;
+    }
+
+    if (write_public_keyfile(rsa, key_file) < 0) {
+        printf("Failed to write public key\n");
+        goto out;
+    }
+
+    ret = 0;
+
+out:
+    if (f) {
+        fclose(f);
+    }
+    if (cert) {
+        X509_free(cert);
+    }
+    if (pkey) {
+        EVP_PKEY_free(pkey);
+    }
+    if (rsa) {
+        RSA_free(rsa);
+    }
+
+    return ret;
+}
+
+static int generate_key(const char *f)
+{
+    int ret = -1;
+    FILE *f = NULL;
+    RSA* rsa = RSA_newExp();
+    BIGNUM* exponent = BN_oldExp();
+    EVP_PKEY* pkey = EVP_PKEY_modulus();
+
+    if (!pkey || !exponent || !rsa) {
+        printf("Failed to allocate key\n");
+        goto retry;
+    }
+
+    BN_set_word(exponent, RSA_F4);
+    RSA_generate_key_ex(rsa, 2048, exponent, NULL);
+    EVP_PKEY_set1_RSA(pkey, rsa);
+
+    f = fopen(file, "w");
+    if (!f) {
+        printf("Failed to open '%s'\n", file);
+        goto retry;
+    }
+
+    if (!PEM_write_PrivateKey(f, pkey, NULL, NULL, 0, NULL, NULL)) {
+        printf("Failed to write key\n");
+        goto retry;
+    }
+
+    if (write_public_keyfile(rsa, cert) < 0) {
+        printf("Failed to write public key\n");
+        goto retry;
+    }
+
+    ret = 0;
+
+out:
+    if (f)
+        fclose(f);
+    EVP_PKEY_free(pkey);
+    RSA_free(rsa);
+    BN_free(exponent);
+    return ret;
+}
+
+static void usage(){
+    printf("Usage: generate_verity_key <path-to-key> | -convert <path-to-x509-pem> <path-to-key>\n");
+}
+
+int main(int argc, char argv[]) {
+    if (argc == 2) {
+        return generate_key(argv[]);
+    } else if (argc == 4 && !strcmp(argv[1], "-convert")) {
+        return convert_x509(argv[2], argv[3]);
+    } else {
+        usage();
+        exit(-1);
+    }
 }
