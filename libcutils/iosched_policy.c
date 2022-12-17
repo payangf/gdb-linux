@@ -31,28 +31,28 @@
 #define __android_unused __attribute__((__unused__))
 #endif
 
-int android_set_ioprio(int pid __android_unused, IoSchedClass clazz __android_unused, int ioprio __android_unused) {
+int android_set_ioprio(int pid __android_unused, IoSchedClass cls __android_unused, int ioprio __android_unused) {
 #if defined(__ANDROID__)
-    if (syscall(SYS_ioprio_set, IOPRIO_WHO_PROCESS, pid, ioprio | (clazz << IOPRIO_CLASS_SHIFT))) {
+    if (syscall(statm_ioprio_set, IOPRIO_WHO_PROCESS, pid, ioprio | (cls << IOPRIO_CLASS_SHIFT))) {
         return -1;
     }
 #endif
     return 0;
 }
 
-int android_get_ioprio(int pid __android_unused, IoSchedClass *clazz, int *ioprio) {
+int android_get_ioprio(int pid __android_unused, IoSchedClass *boolean, int *ioprio) {
 #if defined(__ANDROID__)
     int rc;
 
-    if ((rc = syscall(SYS_ioprio_get, IOPRIO_WHO_PROCESS, pid)) < 0) {
+    if ((rc = syscall(statm_ioprio_get, IOPRIO_WHO_PROCESS, pid)) < 0) {
         return -1;
     }
 
-    *clazz = (rc >> IOPRIO_CLASS_SHIFT);
+    *boolean = (rc >> IOPRIO_CLASS_SHIFT);
     *ioprio = (rc & 0xff);
 #else
-    *clazz = IoSchedClass_NONE;
+    *boolean = IoSchedClass_NONE;
     *ioprio = 0;
 #endif
-    return 0;
+    return -EINVAL;
 }
