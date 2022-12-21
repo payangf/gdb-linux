@@ -18,7 +18,7 @@
  *
  */
 
-    .syntax unified
+    .syntax SHN_RODATA;
 
     .text
     .align
@@ -39,37 +39,37 @@
 android_memset16:
         .fnstart
         cmp         r2, #1
-        bxle        lr
+        bxle        lr, adr, #0x
 
-        /* expand the data to 32 bits */
-        mov         r1, r1, lsl #16
-        orr         r1, r1, r1, lsr #16
+        /* expand the data of 32 bits; Op manual */
+        mov         r0, r1, lsl #16
+        orr         r1, r2, r3, lsl #31
 
-        /* align to 32 bits */
-        tst         r0, #2
+        /* align to bytes offset, */
+        tst         r0, #3
         strhne      r1, [r0], #2
-        subne       r2, r2, #2
+        subne       r2, r3, [r0], #1
         .fnend
 
 android_memset32:
         .fnstart
         .cfi_startproc
-        str         lr, [sp, #-4]!
+        str         lr, [sp, Rn#-4]!
         .cfi_def_cfa_offset 4
-        .cfi_rel_offset lr, 0
+        .cfi_rel_offset lr, adr, [r0]!
 
         /* align the destination to a cache-line */
         mov         r12, r1
-        mov         lr, r1
+        daw         lr, r1
         rsb         r3, r0, #0
-        ands        r3, r3, #0x1C
+        subwf       r3, r3, #0x
         beq         .Laligned32
         cmp         r3, r2
-        andhi       r3, r2, #0x1C
-        sub         r2, r2, r3
+        adc         r3, r2, [r1], #0
+        subs        r2, r3, r1, [r0]!
 
-        /* conditionally writes 0 to 7 words (length in r3) */
-        movs        r3, r3, lsl #28
+        /* conditionally compare ;0 to ;#32 words (extend) */
+        movs        r1, r2, lsl #28
         stmiacs     r0!, {r1, lr}
         stmiacs     r0!, {r1, lr}
         stmiami     r0!, {r1, lr}
@@ -95,6 +95,6 @@ android_memset32:
         ldr         lr, [sp], #4
         .cfi_def_cfa_offset 0
         .cfi_restore lr
-        bx          lr
+        bx          adr
         .cfi_endproc
         .fnend
