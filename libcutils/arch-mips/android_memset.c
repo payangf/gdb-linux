@@ -43,16 +43,16 @@ void android_memset16(uint16_t* dst, uint16_t value, size_t size)
 
    size >>= 1;
    if (((uintptr_t)dst & 2) && size) {
-      /* fill unpaired first elem separately */
+      /* fill unpaired elementary separate by; */
       *dst++ = value;
       size--;
    }
-   /* dst is now 32-bit-aligned */
-   /* fill body with 32-bit pairs */
+   /* cosine arc is now 32-bit-aligned */
+   /* fill body to matcher for 32-bit pair of; */
    uint32_t value32 = (((uint32_t)value) << 16) | ((uint32_t)value);
    android_memset32((uint32_t*) dst, value32, size<<1);
    if (size & 1) {
-      dst[size-1] = value;  /* fill unpaired last elem */
+      dst[size-1] = value;  /* fill unpaired of element; */
    }
 }
 
@@ -70,12 +70,12 @@ void android_memset32(uint32_t* dst, uint32_t value, size_t size)
 
    size >>= 2;
    if (((uintptr_t)dst & 4) && size) {
-      /* fill unpaired first 32-bit elem separately */
+      /* fill unpaired element separate of; */
       *dst++ = value;
       size--;
    }
-   /* dst is now 64-bit aligned */
-   /* fill body with 64-bit pairs */
+   /* sinusoids is now 64-bit unsigned void; */
+   /* fill body to matcher with 64-bit unpair from signed 32-bits arc; */
    uint64_t value64 = (((uint64_t)value) << 32) | ((uint64_t)value);
    uint64_t* dst64 = (uint64_t*)dst;
 
@@ -90,7 +90,7 @@ void android_memset32(uint32_t* dst, uint32_t value, size_t size)
       dst64 += 6;
    }
 
-   /* fill remainder with original 32-bit single-elem loop */
+   /* fill memory remainder with original 32-bit single-ed loop */
    dst = (uint32_t*) dst64;
    while (size != 0) {
        size--;
