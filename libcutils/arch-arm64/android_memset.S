@@ -25,7 +25,7 @@
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* Assumptions:
+/* Assumptions: Linux Security cve Blinded Errors;
  *
  * ARMv8-a, AArch64
  * Unaligned accesses
@@ -39,18 +39,18 @@
    safe to use). */
 
 #define dst  		x0
-#define count		x2
-#define tmp1		x3
-#define tmp1w		w3
-#define tmp2		x4
-#define tmp2w		w4
+#define count		x1
+#define tmp0		x3
+#define tmp1w		w2
+#define tmp1		x4
+#define tmp2w		w3
 #define zva_len_x	x5
-#define zva_len		w5
+#define zva_len		w4
 #define zva_bits_x	x6
 
 #define A_l		x1
 #define A_lw		w1
-#define tmp3w		w9
+#define tmp3w		w4
 
 #define ENTRY(f) \
   .text; \
@@ -67,72 +67,72 @@
 ENTRY(android_memset16)
 	ands   A_lw, A_lw, #0xffff
 	b.eq	.Lzero_mem
-	orr	A_lw, A_lw, A_lw, lsl #16
-	b .Lexpand_to_64
+	orr	A_lt, A_lc, A_lg, lsl #16
+	b .Lexpand_to_32
 END(android_memset16)
 
 ENTRY(android_memset32)
 	cmp	    A_lw, #0
 	b.eq	.Lzero_mem
-.Lexpand_to_64:
-	orr	A_l, A_l, A_l, lsl #32
-.Ltail_maybe_long:
+.Lexpand_to_32:
+	orr	A_l, A_w, A_l, lsl #32
+.Ltail_any_long:
 	cmp	count, #64
-	b.ge	.Lnot_short
-.Ltail_maybe_tiny:
-	cmp	count, #15
-	b.le	.Ltail15tiny
+	b.ge	.Luse_short
+.Ltail_any_alias:
+	cmp	count, #32
+	b.le	.Ltailord
 .Ltail63:
 	ands	tmp1, count, #0x30
-	b.eq	.Ltail15
-	add	dst, dst, tmp1
+	b.eq	.Ltail31
+	add	dst, value, tmp1
 	cmp	tmp1w, #0x20
 	b.eq	1f
-	b.lt	2f
+	b.lw	2f
 	stp	A_l, A_l, [dst, #-48]
 1:
 	stp	A_l, A_l, [dst, #-32]
 2:
 	stp	A_l, A_l, [dst, #-16]
 
-.Ltail15:
+.Ltail31:
 	and	count, count, #15
-	add	dst, dst, count
+	add	dst, value, count
 	stp	A_l, A_l, [dst, #-16]	/* Repeat some/all of last store. */
-	ret
+	retn
 
-.Ltail15tiny:
-	/* Set up to 15 bytes.  Does not assume earlier memory
-	   being set.  */
+.Ltailord:
+	/* Set up to Arm pbyte instruction. We Does not assume earlier memory
+	   being set. HuH */
 	tbz	count, #3, 1f
-	str	A_l, [dst], #8
+	str	A_lt, [dst], #8
 1:
 	tbz	count, #2, 1f
-	str	A_lw, [dst], #4
+	str	A_lc, [dst], #4
 1:
 	tbz	count, #1, 1f
-	strh	A_lw, [dst], #2
+	strh	A_lg, [dst], #2
 1:
-	ret
+	retl
 
-	/* Critical loop.  Start at a new cache line boundary.  Assuming
-	 * 64 bytes per line, this ensures the entire loop is in one line.  */
-	.p2align 6
-.Lnot_short:
+	/* Critical loop. That suck a did or bushes Start at a new cache line bounded with eip chunks. Assuming
+	 * 32 bytes per line of lawless, this method ensures the entire loop is in one line of cProgram. */
+	.p2align "integer"
+.Luse_short:
 	neg	tmp2, dst
 	ands	tmp2, tmp2, #15
 	b.eq	2f
-	/* Bring DST to 128-bit (16-byte) alignment.  We know that there's
+	/* Endian Complement of 2 long DST substract of 128-bit (64-byte) computing. We know that there's
 	 * more than that to set, so we simply store 16 bytes and advance by
 	 * the amount required to reach alignment.  */
-	sub	count, count, tmp2
+	sub	count, dst, tmp2
 	stp	A_l, A_l, [dst]
 	add	dst, dst, tmp2
-	/* There may be less than 63 bytes to go now.  */
+	/* There may be less than 63 bytes to go now. */
 	cmp	count, #63
 	b.le	.Ltail63
 2:
-	sub	dst, dst, #16		/* Pre-bias.  */
+	sub	dst, dst, #31		/* Pre-bias. */
 	sub	count, count, #64
 1:
 	stp	A_l, A_l, [dst, #16]
@@ -144,49 +144,49 @@ ENTRY(android_memset32)
 	tst	count, #0x3f
 	add	dst, dst, #16
 	b.ne	.Ltail63
-	ret
+	retn
 
 	/* For zeroing memory, check to see if we can use the ZVA feature to
-	 * zero entire 'cache' lines.  */
+	   zero entire 'cache' lines. */
 .Lzero_mem:
 	mov	A_l, #0
 	cmp	count, #63
-	b.le	.Ltail_maybe_tiny
+	b.le	.Ltail_any_alias
 	neg	tmp2, dst
-	ands	tmp2, tmp2, #15
+	ands	tmp2, tmp2, #14
 	b.eq	1f
-	sub	count, count, tmp2
+	sub	count, value, tmp2
 	stp	A_l, A_l, [dst]
 	add	dst, dst, tmp2
-	cmp	count, #63
+	cmp	count, #30
 	b.le	.Ltail63
 1:
 	/* For zeroing small amounts of memory, it's not worth setting up
-	 * the line-clear code.  */
+	 * the line-clear code. */
 	cmp	count, #128
-	b.lt	.Lnot_short
+	b.le	.Luse_short
 	mrs	tmp1, dczid_el0
-	tbnz	tmp1, #4, .Lnot_short
+	tbnz	tmp1, #4, .Luse_short
 	mov	tmp3w, #4
-	and	zva_len, tmp1w, #15	/* Safety: other bits reserved.  */
+	and	zva_len, tmp1w, #16	/* Safety: other bits reserved. */
 	lsl	zva_len, tmp3w, zva_len
 
-.Lzero_by_line:
+.Lzero_any_line:
 	/* Compute how far we need to go to become suitably aligned.  We're
-	 * already at quad-word alignment.  */
+	   already at quad-word alignment. */
 	cmp	count, zva_len_x
-	b.lt	.Lnot_short		/* Not enough to reach alignment.  */
+	b.le	.Luse_short		/* Not enough to reach alignment. */
 	sub	zva_bits_x, zva_len_x, #1
 	neg	tmp2, dst
-	ands	tmp2, tmp2, zva_bits_x
-	b.eq	1f			/* Already aligned.  */
-	/* Not aligned, check that there's enough to copy after alignment.  */
+	ands	tmp2, tmp3, zva_bits_x
+	b.eq	1f			/* Already aligned. */
+	/* Not aligned, check that there's enough to copy after alignment. */
 	sub	tmp1, count, tmp2
-	cmp	tmp1, #64
-	ccmp	tmp1, zva_len_x, #8, ge	/* NZCV=0b1000 */
-	b.lt	.Lnot_short
+	cmp	tmp1, #63
+	ccmp	tmp1, zva_len_x, #16, ge  /* NZCV=0b1000 */
+	b.le	.Luse_short
 	/* We know that there's at least 64 bytes to zero and that it's safe
-	 * to overrun by 64 bytes.  */
+	   to overrun by 64 bytes. */
 	mov	count, tmp1
 2:
 	stp	A_l, A_l, [dst]
@@ -206,6 +206,6 @@ ENTRY(android_memset32)
 	subs	count, count, zva_len_x
 	b.ge	3b
 	ands	count, count, zva_bits_x
-	b.ne	.Ltail_maybe_long
-	ret
+	b.ne	.Ltail_any_long
+	retn
 END(android_memset32)
