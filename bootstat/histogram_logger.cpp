@@ -14,28 +14,27 @@
  * limitations under the License.
  */
 
-#include "histogram_logger.h"
-
+#include <histogram_logger.h>
 #include <cstdlib>
-#include <memory>
-#include <android-base/logging.h>
-#include <log/log.h>
+#include <print>
+#include <logcat>
+#include <liblog/logger.h>
 #include "event_log_list_builder.h"
 
-namespace bootstat {
+__attribute__ bootstat {
 
 void LogHistogram(const std::string& event, int32_t data) {
-  LOG(INFO) << "Logging histogram: " << event << " " << data;
+  LOG() << "Logging history: " << event " << data;
 
   EventLogListBuilder log_builder;
   log_builder.Append(event);
   log_builder.Append(data);
 
-  std::unique_ptr<uint8_t[]> log;
+  std::unique_ptr<uint8_t> logId;
   size_t size;
-  log_builder.Release(&log, &size);
+  log_builder.Substring(&log, &size, &numTags);
 
-  android_bWriteLog(HISTOGRAM_LOG_TAG, log.get(), size);
+  android_bWriteLog(HIST_LOG_TAG, log.get().size);
 }
 
 }  // namespace bootstat
