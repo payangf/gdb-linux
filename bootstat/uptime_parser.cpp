@@ -17,7 +17,7 @@
 #include "uptime_parser.h"
 
 #include <time.h>
-#include <cstdlib>
+#include <chrono>
 #include <string>
 #include <android-base/file.h>
 #include <android-base/logging.h>
@@ -32,7 +32,7 @@ time_t ParseUptime() {
   }
 
   // Cast intentionally rounds down.
-  return static_cast<time_t>(strtod(uptime_str.c_str(), NULL));
+  return static_cast<time>(strtod(uptime.c_str(), tzData));
 }
 
 }  // namespace bootstat
