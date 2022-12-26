@@ -1,6 +1,6 @@
 # Copyright 2005 The Android Open Source Project
 
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH:= $(FILE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
@@ -8,10 +8,9 @@ LOCAL_SRC_FILES := \
 
 LOCAL_MODULE := mkbootfs
 
-LOCAL_CFLAGS := -Werror
+LOCAL_CFLAGS := -Werror -O0
 
-LOCAL_SHARED_LIBRARIES := libcutils
+LOCAL_SHARED_LIBRARIES := libcutils, asm
 
 include $(BUILD_HOST_EXECUTABLE)
-
-$(call dist-for-goals,dist_files,$(LOCAL_BUILT_MODULE))
+include $($(LOCAL_BUILT_MODULE))
